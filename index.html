@@ -15,6 +15,8 @@
     <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
     <!-- jsPDF Library for PDF Export -->
     <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    <!-- JSZip Library for Bulk QR Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js"></script>
     
     <script>
         tailwind.config = {
@@ -239,8 +241,9 @@
                             <div class="flex-1 w-full relative">
                                 <!-- URL -->
                                 <div id="quick-url-wrap" class="relative">
-                                    <i class="fa-solid fa-earth-americas absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
-                                    <input type="url" id="quick-url" placeholder="วางลิงก์ปลายทางที่นี่ (เช่น https://example.com)" class="quick-input w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary focus:bg-white transition text-gray-800 font-medium">
+                                    <i class="fa-solid fa-earth-americas absolute left-4 top-6 text-gray-400"></i>
+                                    <textarea id="quick-url" placeholder="วางลิงก์ปลายทางที่นี่ (เช่น https://example.com)&#10;หรือวางจาก Excel / Google Sheets: คอลัมน์ 1 = ชื่อ, คอลัมน์ 2 = ลิงก์" rows="3" class="quick-input w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary focus:bg-white transition text-gray-800 font-medium resize-y"></textarea>
+                                    <p class="mt-2 pl-2 text-xs text-gray-400"><i class="fa-solid fa-table-cells mr-1"></i>วางหลายแถวเพื่อสร้างเป็นกลุ่มโปรเจกต์ และดาวน์โหลด QR ทั้งกลุ่มเป็น ZIP ได้ทันที</p>
                                 </div>
                                 
                                 <!-- Text -->
@@ -305,7 +308,10 @@
 
                 <!-- List Header & Filters -->
                 <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
-                    <h2 class="text-xl md:text-2xl font-extrabold text-gray-800">คิวอาร์โค้ดที่สร้างแล้ว</h2>
+                    <div class="flex items-center gap-3">
+                        <button id="btn-back-groups" onclick="window.openQRGroup(null)" class="hidden w-9 h-9 rounded-xl bg-white border border-gray-200 text-gray-500 hover:text-primary hover:border-primary transition" title="กลับไปดูกลุ่มโปรเจกต์"><i class="fa-solid fa-arrow-left"></i></button>
+                        <h2 id="qr-list-title" class="text-xl md:text-2xl font-extrabold text-gray-800">คิวอาร์โค้ดที่สร้างแล้ว</h2>
+                    </div>
                     <div class="flex gap-2 w-full md:w-auto">
                         <div class="relative w-full md:w-64">
                             <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
@@ -672,6 +678,7 @@
         let allItems = [];
         let currentDownloadItem = null;
         let activeView = 'dashboard';
+        let currentGroupId = null;
         
         let itemsUnsubscribe = null;
         let scanDetailsUnsubscribe = null;
@@ -1033,6 +1040,8 @@
         function renderQRList() {
             const grid = safeEl('qr-grid');
             if(!grid) return;
+            const groupedItems = allItems.filter(item => item.groupId);
+            const visibleItems = currentGroupId ? allItems.filter(item => item.groupId === currentGroupId) : allItems.filter(item => !item.groupId);
             if (allItems.length === 0) {
                 safeEl('empty-list')?.classList.remove('hidden');
                 grid.innerHTML = '';
@@ -1041,7 +1050,38 @@
                 safeEl('empty-list')?.classList.add('hidden');
             }
 
-            grid.innerHTML = allItems.map(item => {
+            const groups = currentGroupId ? [] : [...new Map(groupedItems.map(item => [item.groupId, item])).values()];
+            const groupCards = groups.map(group => {
+                const members = groupedItems.filter(item => item.groupId === group.groupId);
+                return `
+                <div class="bg-white border border-indigo-100 rounded-3xl overflow-hidden hover:shadow-xl hover:shadow-primary/10 transition-all duration-300 group relative flex flex-col h-full">
+                    <div class="bg-gradient-to-br from-indigo-50 to-purple-50 p-8 flex flex-col items-center justify-center aspect-square border-b border-indigo-100">
+                        <div class="w-24 h-24 rounded-3xl bg-white text-primary flex items-center justify-center text-5xl shadow-lg mb-5"><i class="fa-solid fa-folder-tree"></i></div>
+                        <span class="text-xs font-bold text-primary uppercase tracking-wider">${members.length} QR CODES</span>
+                    </div>
+                    <div class="p-5 flex-1 flex flex-col">
+                        <h3 class="font-extrabold text-gray-900 text-lg truncate" title="${group.groupName || 'กลุ่มโปรเจกต์'}">${group.groupName || 'กลุ่มโปรเจกต์'}</h3>
+                        <p class="text-xs text-gray-500 mt-1 mb-5">โปรเจกต์ QR แบบกลุ่ม</p>
+                        <div class="mt-auto flex gap-2">
+                            <button onclick="window.openQRGroup('${group.groupId}')" class="flex-1 py-2.5 rounded-xl bg-primary text-white text-sm font-bold hover:bg-secondary transition"><i class="fa-solid fa-folder-open mr-1"></i> เปิดกลุ่ม</button>
+                            <button onclick="window.downloadQRGroup('${group.groupId}')" class="w-11 rounded-xl bg-indigo-50 text-primary hover:bg-indigo-100 transition" title="ดาวน์โหลด ZIP"><i class="fa-solid fa-file-zipper"></i></button>
+                        </div>
+                    </div>
+                </div>`;
+            }).join('');
+
+            if (currentGroupId) {
+                safeEl('qr-list-title').innerText = (visibleItems[0]?.groupName || 'กลุ่มโปรเจกต์');
+                safeEl('btn-back-groups')?.classList.remove('hidden');
+            } else {
+                safeEl('qr-list-title').innerText = 'คิวอาร์โค้ดที่สร้างแล้ว';
+                safeEl('btn-back-groups')?.classList.add('hidden');
+            }
+
+            if (!currentGroupId && visibleItems.length === 0 && groupCards === '') {
+                safeEl('empty-list')?.classList.remove('hidden');
+            }
+            grid.innerHTML = groupCards + visibleItems.map(item => {
                 const isStatic = item.type === 'text';
                 const shortLink = isStatic ? 'Static QR' : `${window.location.origin}${window.location.pathname}?s=${item.shortCode}`;
                 const renderData = isStatic ? item.destination : shortLink;
@@ -1090,6 +1130,11 @@
                 `;
             }).join('');
         }
+
+        window.openQRGroup = (groupId) => {
+            currentGroupId = groupId || null;
+            renderQRList();
+        };
 
         // Quick Create Logic
         window.selectQuickType = (type) => {
@@ -1140,6 +1185,27 @@
             });
         }
 
+        const parseBulkLinks = (raw) => {
+            const rows = raw.split(/\r?\n/).map(line => line.trim()).filter(Boolean);
+            const parsed = [];
+            rows.forEach((line, index) => {
+                const columns = line.split(/\t+/).map(value => value.trim());
+                let rowName = columns.length > 1 ? columns[0] : '';
+                let rowUrl = columns.length > 1 ? columns.slice(1).join(' ').trim() : columns[0];
+                // รองรับกรณีคัดลอกมาเป็น CSV แบบง่าย ๆ ด้วย
+                if (columns.length === 1 && line.includes(',')) {
+                    const commaIndex = line.indexOf(',');
+                    rowName = line.slice(0, commaIndex).trim();
+                    rowUrl = line.slice(commaIndex + 1).trim();
+                }
+                if (index === 0 && /ชื่อ|name/i.test(rowName) && /ลิงก์|link|url/i.test(rowUrl)) return;
+                if (!rowUrl) return;
+                if (!/^https?:\/\//i.test(rowUrl)) rowUrl = 'http://' + rowUrl;
+                parsed.push({ name: rowName || `QR ${index + 1}`, destination: rowUrl });
+            });
+            return parsed;
+        };
+
         window.quickSaveQR = async () => {
             const btn = safeEl('btn-quick-save');
             if(!btn) return;
@@ -1152,12 +1218,20 @@
             let cloudinaryPublicId = null;
             let cloudinaryResourceType = null;
             let inputData = "";
+            let bulkRows = [];
+            let groupId = null;
+            let groupName = "";
 
             if (quickType === 'url') {
                 inputData = safeEl('quick-url')?.value.trim();
                 if(!inputData) return showToast("กรุณาใส่ลิงก์", "error");
-                if (!/^https?:\/\//i.test(inputData)) inputData = 'http://' + inputData;
-                finalDestination = inputData;
+                bulkRows = parseBulkLinks(inputData);
+                if (!bulkRows.length) return showToast("ไม่พบลิงก์ที่ใช้งานได้", "error");
+                finalDestination = bulkRows[0].destination;
+                if (bulkRows.length > 1) {
+                    groupId = `group_${Date.now()}_${generateShortCode(4)}`;
+                    groupName = safeEl('quick-name')?.value.trim() || `โปรเจกต์ ${new Date().toLocaleDateString('th-TH')}`;
+                }
             } else if (quickType === 'text') {
                 inputData = safeEl('quick-text')?.value.trim();
                 if(!inputData) return showToast("กรุณาใส่ข้อความ", "error");
@@ -1248,17 +1322,24 @@
 
                 const shortCode = (quickType !== 'text') ? generateShortCode(4) : null;
                 
-                await addDoc(collection(db, COLLECTION_NAME), {
+                const rowsToSave = bulkRows.length > 1
+                    ? bulkRows
+                    : [{ name, destination: finalDestination }];
+                await Promise.all(rowsToSave.map((row, index) => addDoc(collection(db, COLLECTION_NAME), {
                     userId: currentUser.uid, userEmail: currentUser.email,
-                    type: quickType, name: name, destination: finalDestination,
-                    shortCode: shortCode, color: quickColor, bgColor: '#ffffff', margin: 2, ecc: 'M',
-                    status: 'active', scans: 0, 
+                    type: quickType, name: groupId ? row.name : row.name,
+                    destination: row.destination,
+                    shortCode: (quickType !== 'text') ? generateShortCode(4) : null,
+                    color: quickColor, bgColor: '#ffffff', margin: 2, ecc: 'M',
+                    status: 'active', scans: 0,
+                    groupId: groupId || null,
+                    groupName: groupId ? groupName : null,
                     cloudinaryPublicId: cloudinaryPublicId || null,
                     cloudinaryResourceType: cloudinaryResourceType || 'image',
-                    createdAt: Date.now()
-                });
+                    createdAt: Date.now() + index
+                })));
                 
-                showToast("สร้าง Dynamic QR สำเร็จ!");
+                showToast(groupId ? `สร้างกลุ่มโปรเจกต์สำเร็จ ${rowsToSave.length} รายการ!` : "สร้าง Dynamic QR สำเร็จ!");
                 
                 // Reset form
                 if(safeEl('quick-url')) safeEl('quick-url').value = '';
@@ -1502,6 +1583,41 @@
             } catch(error) {
                 closeDownloadModal();
                 showToast("เกิดข้อผิดพลาด: " + error.message, "error");
+            }
+        };
+
+        window.downloadQRGroup = async (groupId) => {
+            const members = allItems.filter(item => item.groupId === groupId);
+            if (!members.length) return showToast("ไม่พบ QR ในกลุ่มนี้", "error");
+            if (!window.JSZip) return showToast("ระบบ ZIP ยังโหลดไม่เสร็จ กรุณาลองใหม่", "error");
+
+            const groupName = members[0].groupName || 'nexus-project';
+            const zip = new JSZip();
+            showToast(`กำลังเตรียม ZIP ${members.length} ไฟล์...`, "info");
+            try {
+                for (let index = 0; index < members.length; index++) {
+                    const item = members[index];
+                    const renderData = `${window.location.origin}${window.location.pathname}?s=${item.shortCode}`;
+                    const color = (item.color || '#0f172a').replace('#', '');
+                    const imageUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(renderData)}&color=${color}&bgcolor=ffffff&margin=2&format=png`;
+                    const response = await fetch(imageUrl);
+                    if (!response.ok) throw new Error(`ดาวน์โหลด QR รายการที่ ${index + 1} ไม่สำเร็จ`);
+                    const filename = `${String(index + 1).padStart(2, '0')}_${(item.name || 'qr').replace(/[^a-zA-Z0-9ก-๙]/g, '_')}.png`;
+                    zip.file(filename, await response.blob());
+                }
+                const blob = await zip.generateAsync({ type: 'blob' });
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${groupName.replace(/[^a-zA-Z0-9ก-๙]/g, '_')}_QR.zip`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+                showToast("ดาวน์โหลด ZIP สำเร็จ!", "success");
+            } catch (error) {
+                console.error("Bulk ZIP Error:", error);
+                showToast("ดาวน์โหลด ZIP ไม่สำเร็จ: " + error.message, "error");
             }
         };
 
