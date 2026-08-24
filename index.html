@@ -1,0 +1,1615 @@
+<!DOCTYPE html>
+<html lang="th">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>NexusQR - Dynamic Generator</title>
+    <!-- Favicon (Website Icon - QR Code SVG) -->
+    <link rel="icon" href="data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 448 512'><path fill='%238b5cf6' d='M0 80C0 53.5 21.5 32 48 32h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48H48c-26.5 0-48-21.5-48-48V80zM64 96v64h64V96H64zm0 256v64h64v-64H64zm-16-48c-26.5 0-48 21.5-48 48v96c0 26.5 21.5 48 48 48h96c26.5 0 48-21.5 48-48v-96c0-26.5-21.5-48-48-48H48zm208-224v64h64V96h-64zm-16-16c0-26.5 21.5-48 48-48h96c26.5 0 48 21.5 48 48v96c0 26.5-21.5 48-48 48h-96c-26.5 0-48-21.5-48-48V80zM352 352h-32v-32h-32v32h-32v32h32v32h32v-32h32v-32zm64-64h-32v32h-32v32h32v32h32v-32h32v-32h-32v-32zm0 128h-32v32h-32v32h32v32h32v-32h32v-32h-32v-32zm-64-64h-32v32h-32v32h32v32h32v-32h32v-32h-32v-32z'/></svg>" type="image/svg+xml">
+    
+    <!-- Tailwind CSS -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Prompt:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <!-- jsPDF Library for PDF Export -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/jspdf/2.5.1/jspdf.umd.min.js"></script>
+    
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    colors: { 
+                        primary: '#8b5cf6', // Violet 500
+                        secondary: '#a855f7', // Fuchsia 500
+                        dark: '#0f172a', // Slate 900
+                        lightbg: '#f8fafc' 
+                    },
+                    fontFamily: { sans: ['Prompt', 'sans-serif'] }
+                }
+            }
+        }
+    </script>
+    <style>
+        /* Base scrolling enabled on body */
+        body { font-family: 'Prompt', sans-serif; background-color: #f1f5f9; color: #334155; overflow-y: auto; overflow-x: hidden; }
+        .hidden { display: none !important; }
+        .fade-in { animation: fadeIn 0.4s cubic-bezier(0.16, 1, 0.3, 1); }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: translateY(0); } }
+        
+        /* Custom Scrollbar */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: transparent; }
+        ::-webkit-scrollbar-thumb { background: #cbd5e1; border-radius: 10px; }
+        ::-webkit-scrollbar-thumb:hover { background: #94a3b8; }
+        
+        /* Modern Card Hover */
+        .glass-card { background: rgba(255, 255, 255, 0.95); backdrop-filter: blur(10px); border: 1px solid rgba(255,255,255,0.2); }
+        .qr-overlay-btn { transform: scale(0.9); opacity: 0; transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1); }
+        .group:hover .qr-overlay-btn { transform: scale(1); opacity: 1; }
+        
+        /* Gradient Text */
+        .text-gradient { background: linear-gradient(to right, #8b5cf6, #d946ef); -webkit-background-clip: text; -webkit-text-fill-color: transparent; }
+    </style>
+</head>
+<body class="antialiased min-h-screen flex flex-col bg-slate-50">
+
+    <!-- System Loading & Redirect Screen -->
+    <div id="sys-loading" class="fixed inset-0 bg-white z-[100] flex flex-col items-center justify-center transition-opacity duration-300">
+        <div class="relative w-24 h-24 mb-6">
+            <div class="absolute inset-0 rounded-full border-4 border-gray-100"></div>
+            <div class="absolute inset-0 rounded-full border-4 border-primary border-t-transparent animate-spin"></div>
+            <i class="fa-solid fa-qrcode text-3xl text-primary absolute inset-0 flex items-center justify-center animate-pulse"></i>
+        </div>
+        <div id="sys-loading-text" class="text-lg font-medium text-gray-700">กำลังเชื่อมต่อข้อมูล...</div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 right-4 transform translate-x-[120%] transition-transform duration-300 z-[90] px-5 py-3.5 rounded-xl shadow-xl flex items-center gap-3 text-white bg-dark border border-gray-700">
+        <i id="toast-icon" class="fa-solid fa-circle-check text-xl text-green-400"></i>
+        <span id="toast-message" class="font-medium text-sm">แจ้งเตือน</span>
+    </div>
+
+    <!-- Login Modal -->
+    <div id="login-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[80] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-8 max-w-md w-full relative shadow-2xl transform scale-95 transition-transform duration-300 overflow-hidden" id="login-modal-content">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-secondary"></div>
+            <button onclick="toggleLoginModal(false)" class="absolute top-5 right-5 text-gray-400 hover:text-gray-700 bg-gray-50 hover:bg-gray-100 rounded-full w-8 h-8 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/30">
+                <i class="fa-solid fa-qrcode text-3xl"></i>
+            </div>
+            <h2 class="text-center text-2xl font-extrabold text-gray-900 mb-2">NexusQR</h2>
+            <p class="text-center text-sm text-gray-500 mb-8">เข้าสู่ระบบเพื่อจัดการ Dynamic QR ของคุณ</p>
+            <button id="btn-google-login" class="w-full flex justify-center items-center gap-3 py-3.5 px-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-indigo-50 font-bold text-gray-700 transition focus:ring-4 focus:ring-primary/20">
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="Google">
+                <span>ล็อกอินด้วย Google</span>
+                <i id="login-spinner" class="fa-solid fa-circle-notch fa-spin hidden ml-2 text-primary"></i>
+            </button>
+        </div>
+    </div>
+
+    <!-- ================= PUBLIC LANDING PAGE ================= -->
+    <div id="page-landing" class="hidden flex-1 flex flex-col bg-white w-full">
+        <nav class="px-6 py-5 flex justify-between items-center max-w-7xl mx-auto w-full z-40 relative">
+            <div class="flex items-center gap-2 text-gray-900 font-extrabold text-2xl">
+                <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center text-sm"><i class="fa-solid fa-qrcode"></i></div>
+                <span>Nexus<span class="text-primary">QR</span></span>
+            </div>
+            <button onclick="toggleLoginModal(true)" class="bg-dark text-white px-6 py-2.5 rounded-full font-medium hover:bg-gray-800 transition shadow-lg">
+                เข้าสู่ระบบ
+            </button>
+        </nav>
+
+        <main class="flex-1 flex flex-col items-center justify-center px-6 text-center max-w-5xl mx-auto w-full relative pb-20 mt-10">
+            <!-- Decorative Blobs -->
+            <div class="absolute top-0 left-10 w-64 h-64 bg-primary/20 rounded-full blur-3xl -z-10"></div>
+            <div class="absolute bottom-10 right-10 w-80 h-80 bg-secondary/20 rounded-full blur-3xl -z-10"></div>
+
+            <div class="inline-flex items-center gap-2 px-4 py-2 bg-white rounded-full text-sm font-semibold text-gray-700 shadow-sm border border-gray-200 mb-8">
+                <span class="flex h-2 w-2 relative"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-primary opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-primary"></span></span>
+                ระบบ Real-time Sync & Dynamic Links
+            </div>
+            <h1 class="text-5xl md:text-7xl font-black text-slate-900 mb-6 tracking-tight leading-tight">
+                ควบคุม QR Code<br>ด้วยปลายนิ้ว <span class="text-gradient">ที่เดียวจบ</span>
+            </h1>
+            <p class="text-lg md:text-xl text-gray-500 mb-10 max-w-2xl mx-auto leading-relaxed">
+                สร้าง, จัดการ, และแก้ไขลิงก์ปลายทางของ QR Code ได้ทุกเมื่อโดยไม่ต้องสั่งพิมพ์ใหม่ พร้อมสถิติยอดสแกนแบบวินาทีต่อวินาที
+            </p>
+            <button onclick="toggleLoginModal(true)" class="bg-gradient-to-r from-primary to-secondary text-white px-10 py-4 rounded-full font-bold text-lg hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center gap-2">
+                เริ่มต้นใช้งานฟรี <i class="fa-solid fa-arrow-right"></i>
+            </button>
+        </main>
+    </div>
+
+    <!-- ================= LOGGED IN APP ================= -->
+    <div id="page-app" class="hidden flex-1 flex flex-col w-full relative">
+        
+        <!-- System Announcement Banner -->
+        <div id="sys-announcement" class="hidden bg-indigo-600 text-white text-xs md:text-sm py-2 text-center font-bold px-4 flex items-center justify-center gap-2">
+            <i class="fa-solid fa-bullhorn"></i> <span id="sys-announcement-text"></span>
+        </div>
+
+        <!-- Top Header Navbar -->
+        <header class="h-16 bg-white/95 backdrop-blur-md border-b border-gray-200 sticky top-0 z-40 w-full shadow-sm">
+            <div class="max-w-7xl mx-auto px-4 md:px-8 h-full flex items-center justify-between">
+                
+                <!-- Left: Logo & Desktop Navigation -->
+                <div class="flex items-center gap-8">
+                    <!-- Logo -->
+                    <div class="flex items-center gap-2 text-gray-900 font-extrabold text-xl cursor-pointer" onclick="navTo('dashboard')">
+                        <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-primary to-secondary text-white flex items-center justify-center text-sm"><i class="fa-solid fa-qrcode"></i></div>
+                        <span>Nexus<span class="text-primary">QR</span></span>
+                    </div>
+
+                    <!-- Main Navigation Links -->
+                    <nav class="hidden md:flex items-center gap-2 h-16">
+                        <button onclick="navTo('dashboard')" id="nav-dashboard" class="top-nav-btn text-primary font-bold border-b-2 border-primary h-full px-3 flex items-center gap-2 transition-all">
+                            <i class="fa-solid fa-border-all"></i> จัดการคิวอาร์
+                        </button>
+                        <button onclick="navTo('analytics')" id="nav-analytics" class="top-nav-btn text-gray-500 hover:text-gray-900 border-b-2 border-transparent h-full px-3 flex items-center gap-2 transition-all">
+                            <i class="fa-solid fa-chart-line"></i> ภาพรวมสถิติ
+                        </button>
+                        <button onclick="navToSettings('system')" id="nav-admin" class="top-nav-btn hidden text-red-400 hover:text-red-600 border-b-2 border-transparent h-full px-3 flex items-center gap-2 transition-all">
+                            <i class="fa-solid fa-shield-halved"></i> ผู้ดูแลระบบ
+                        </button>
+                    </nav>
+                </div>
+
+                <!-- Right Profile Menu -->
+                <div class="flex items-center gap-4 h-full">
+                    <div class="hidden sm:flex items-center gap-2 px-3 py-1.5 bg-indigo-50 text-primary rounded-full text-xs font-bold border border-indigo-100 cursor-pointer hover:bg-indigo-100 transition" onclick="navToSettings('billing')">
+                        <i class="fa-solid fa-crown text-amber-500"></i> อัปเกรดเป็น Pro
+                    </div>
+                    
+                    <!-- Advanced Profile Dropdown -->
+                    <div class="relative h-full flex items-center">
+                        <button id="profile-btn" class="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition focus:outline-none">
+                            <div class="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold shadow-sm"><i class="fa-regular fa-user"></i></div>
+                            <i class="fa-solid fa-chevron-down text-xs text-gray-400 mr-1"></i>
+                        </button>
+                        
+                        <!-- Dropdown Menu Box -->
+                        <div id="profile-dropdown" class="absolute right-0 top-[100%] mt-1 w-64 bg-white border border-gray-100 rounded-2xl shadow-2xl transition-all duration-200 z-50 transform origin-top-right hidden opacity-0 scale-95">
+                            <div class="p-4 border-b border-gray-50 bg-gray-50/50 rounded-t-2xl">
+                                <p class="text-xs text-gray-500 font-medium mb-1">บัญชีของคุณ</p>
+                                <p class="text-sm font-bold text-gray-800 truncate" id="drop-email">email@domain.com</p>
+                            </div>
+
+                            <!-- Mobile App Navigation -->
+                            <div class="md:hidden p-2 py-3 border-b border-gray-50 bg-indigo-50/30">
+                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-3 mb-2">เมนูหลัก</p>
+                                <button onclick="navTo('dashboard')" class="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary hover:bg-indigo-50 rounded-lg flex items-center gap-2"><i class="fa-solid fa-border-all w-4 text-center"></i> จัดการคิวอาร์</button>
+                                <button onclick="navTo('analytics')" class="w-full text-left px-3 py-2 text-sm font-medium text-gray-700 hover:text-primary hover:bg-indigo-50 rounded-lg flex items-center gap-2"><i class="fa-solid fa-chart-line w-4 text-center"></i> ภาพรวมสถิติ</button>
+                                <button onclick="navToSettings('system')" id="nav-admin-mobile" class="hidden w-full text-left px-3 py-2 text-sm font-medium text-red-500 hover:text-red-700 hover:bg-red-50 rounded-lg flex items-center gap-2"><i class="fa-solid fa-shield-halved w-4 text-center"></i> ผู้ดูแลระบบ</button>
+                            </div>
+
+                            <!-- Profile Management Options -->
+                            <div class="p-2 py-3 text-sm text-gray-600 font-medium space-y-1">
+                                <p class="text-[10px] text-gray-400 font-bold uppercase tracking-wider px-3 mb-2">การตั้งค่า</p>
+                                <button onclick="navToSettings('profile')" class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition"><i class="fa-solid fa-user-pen w-4 text-center"></i> จัดการโปรไฟล์</button>
+                                <button onclick="navToSettings('billing')" class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition"><i class="fa-solid fa-credit-card w-4 text-center"></i> บิลลิ่ง & แพ็กเกจ</button>
+                                <button onclick="navToSettings('domain')" class="w-full flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition">
+                                    <i class="fa-solid fa-globe w-4 text-center"></i> โดเมนที่กำหนดเอง <span class="bg-primary/10 text-primary text-[9px] px-1.5 py-0.5 rounded font-bold ml-auto">PRO</span>
+                                </button>
+                                <button onclick="navToSettings('team')" class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition"><i class="fa-solid fa-users w-4 text-center"></i> จัดการทีม</button>
+                            </div>
+                            <div class="p-2 border-t border-gray-50 text-sm text-gray-600 font-medium space-y-1">
+                                <button onclick="navToSettings('api')" class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition"><i class="fa-solid fa-code w-4 text-center"></i> API & Webhooks</button>
+                                <button onclick="navToSettings('support')" class="w-full text-left flex items-center gap-3 px-3 py-2 rounded-lg hover:bg-gray-100 transition"><i class="fa-regular fa-circle-question w-4 text-center"></i> ศูนย์ช่วยเหลือ (Support)</button>
+                            </div>
+                            <div class="p-2 border-t border-gray-50">
+                                <button id="btn-logout" class="w-full flex items-center justify-center gap-2 px-3 py-2 rounded-lg text-sm font-bold text-red-600 hover:bg-red-50 transition">
+                                    <i class="fa-solid fa-arrow-right-from-bracket"></i> ออกจากระบบ
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </header>
+
+        <!-- Natural Scrollable Workspace Wrapper -->
+        <main class="flex-1 w-full max-w-7xl mx-auto px-4 md:px-8 py-8 md:py-12">
+            
+            <!-- VIEW: DASHBOARD (Create + List) -->
+            <div id="view-dashboard" class="app-view fade-in">
+                
+                <div class="flex items-center gap-3 mb-6">
+                    <h1 class="text-2xl md:text-3xl font-extrabold text-gray-800">เครื่องมือสร้าง QR Code</h1>
+                    <span class="inline-flex items-center gap-1.5 px-2.5 py-1 rounded-full text-xs font-bold bg-green-100 text-green-700 border border-green-200">
+                        <span class="relative flex h-2 w-2"><span class="animate-ping absolute inline-flex h-full w-full rounded-full bg-green-500 opacity-75"></span><span class="relative inline-flex rounded-full h-2 w-2 bg-green-600"></span></span> Live Sync
+                    </span>
+                </div>
+
+                <!-- Neo-Card Quick Create Box -->
+                <div class="glass-card rounded-3xl shadow-sm mb-12 overflow-hidden border border-gray-200 bg-white">
+                    <div class="p-6 md:p-8">
+                        <!-- Type Toggles Pill Style -->
+                        <div class="flex flex-wrap gap-2 mb-6 bg-gray-50 p-1.5 rounded-xl inline-flex border border-gray-200">
+                            <button onclick="selectQuickType('url')" id="qt-url" class="px-6 py-2.5 rounded-lg bg-white text-primary font-bold shadow-sm flex items-center gap-2 transition"><i class="fa-solid fa-link"></i> ลิงก์เว็บไซต์</button>
+                            <button onclick="selectQuickType('file')" id="qt-file" class="px-6 py-2.5 rounded-lg text-gray-500 font-medium hover:text-gray-900 transition flex items-center gap-2"><i class="fa-solid fa-file-arrow-up"></i> อัปโหลดไฟล์</button>
+                            <button onclick="selectQuickType('text')" id="qt-text" class="px-6 py-2.5 rounded-lg text-gray-500 font-medium hover:text-gray-900 transition flex items-center gap-2"><i class="fa-solid fa-font"></i> ข้อความ</button>
+                        </div>
+                        
+                        <!-- Inputs -->
+                        <div class="flex flex-col lg:flex-row gap-4 items-start">
+                            <div class="flex-1 w-full relative">
+                                <!-- URL -->
+                                <div id="quick-url-wrap" class="relative">
+                                    <i class="fa-solid fa-earth-americas absolute left-4 top-1/2 -translate-y-1/2 text-gray-400"></i>
+                                    <input type="url" id="quick-url" placeholder="วางลิงก์ปลายทางที่นี่ (เช่น https://example.com)" class="quick-input w-full pl-11 pr-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary focus:bg-white transition text-gray-800 font-medium">
+                                </div>
+                                
+                                <!-- Text -->
+                                <div id="quick-text-wrap" class="hidden relative">
+                                    <textarea id="quick-text" placeholder="พิมพ์ข้อความที่จะแสดง (ไม่สามารถติดตามการสแกนได้)" rows="2" class="quick-input w-full px-4 py-4 bg-gray-50 border border-gray-200 rounded-2xl outline-none focus:ring-4 focus:ring-primary/20 focus:border-primary focus:bg-white transition text-gray-800 font-medium resize-none"></textarea>
+                                </div>
+                                
+                                <!-- FILE Upload -->
+                                <div id="quick-file-wrap" class="hidden relative">
+                                    <div class="quick-input border-2 border-dashed border-primary/30 bg-primary/5 rounded-2xl px-4 py-6 text-center hover:bg-primary/10 transition cursor-pointer relative">
+                                        <input type="file" id="quick-file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
+                                        <div class="flex flex-col items-center justify-center gap-2 text-primary">
+                                            <i class="fa-solid fa-cloud-arrow-up text-3xl mb-1"></i> 
+                                            <span id="quick-file-name" class="font-bold text-lg">คลิกเพื่อเลือกไฟล์ (PDF, รูปภาพ ฯลฯ)</span>
+                                            <span class="text-xs font-medium text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">ขนาดสูงสุด 10MB</span>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            
+                            <button onclick="quickSaveQR()" id="btn-quick-save" class="w-full lg:w-auto bg-gradient-to-r from-primary to-secondary text-white px-10 py-4 rounded-2xl font-bold hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-0.5 transition-all shrink-0 flex items-center justify-center gap-2">
+                                สร้าง QR Code <i class="fa-solid fa-circle-notch fa-spin hidden"></i>
+                            </button>
+                        </div>
+                        
+                        <!-- Customization Settings -->
+                        <div class="mt-4 pt-4 border-t border-gray-100 hidden" id="quick-advanced">
+                            <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">ชื่อเรียก (เพื่อจำง่าย)</label>
+                                    <input type="text" id="quick-name" placeholder="เช่น เมนูร้านอาหาร, นามบัตร" class="w-full px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-sm outline-none focus:border-primary focus:bg-white">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">โทนสีของคิวอาร์</label>
+                                    <div class="flex gap-2">
+                                        <button onclick="setQuickColor('#0f172a')" class="qc-btn w-8 h-8 rounded-full bg-slate-900 ring-2 ring-offset-2 ring-slate-900"></button>
+                                        <button onclick="setQuickColor('#8b5cf6')" class="qc-btn w-8 h-8 rounded-full bg-violet-500"></button>
+                                        <button onclick="setQuickColor('#ec4899')" class="qc-btn w-8 h-8 rounded-full bg-pink-500"></button>
+                                        <button onclick="setQuickColor('#0ea5e9')" class="qc-btn w-8 h-8 rounded-full bg-sky-500"></button>
+                                        <input type="color" id="quick-color-picker" onchange="setQuickColor(this.value)" class="w-8 h-8 p-0 border-0 rounded-full cursor-pointer shrink-0">
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                        <div class="mt-4 text-center lg:text-left">
+                            <button onclick="document.getElementById('quick-advanced').classList.toggle('hidden')" class="text-sm text-gray-500 hover:text-primary font-bold bg-gray-100 hover:bg-indigo-50 px-4 py-1.5 rounded-full transition"><i class="fa-solid fa-sliders mr-1"></i> ตั้งค่าเพิ่มเติม</button>
+                        </div>
+
+                        <!-- Detailed Progress Bar -->
+                        <div id="quick-progress-wrap" class="w-full mt-6 hidden bg-gray-50 border border-gray-200 p-4 rounded-xl fade-in">
+                            <div class="flex justify-between items-end text-sm text-gray-700 font-bold mb-2">
+                                <span id="quick-progress-status-text" class="flex items-center"><i class="fa-solid fa-spinner fa-spin text-primary mr-2"></i>กำลังอัปโหลดไฟล์...</span>
+                                <span id="quick-progress-text" class="text-primary text-xl">0%</span>
+                            </div>
+                            <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden mb-2 shadow-inner">
+                                <div id="quick-progress-bar" class="bg-gradient-to-r from-primary to-secondary h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
+                            </div>
+                            <div id="quick-progress-size" class="text-xs text-gray-500 font-mono text-right font-medium">0.00 MB / 0.00 MB</div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- List Header & Filters -->
+                <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
+                    <h2 class="text-xl md:text-2xl font-extrabold text-gray-800">คิวอาร์โค้ดที่สร้างแล้ว</h2>
+                    <div class="flex gap-2 w-full md:w-auto">
+                        <div class="relative w-full md:w-64">
+                            <i class="fa-solid fa-magnifying-glass absolute left-4 top-1/2 -translate-y-1/2 text-gray-400 text-sm"></i>
+                            <input type="text" placeholder="ค้นหาชื่อ หรือ ลิงก์..." class="w-full pl-10 pr-4 py-2.5 bg-white border border-gray-200 rounded-xl text-sm outline-none focus:border-primary shadow-sm">
+                        </div>
+                    </div>
+                </div>
+
+                <div id="loading-list" class="flex justify-center py-16 hidden">
+                    <div class="flex flex-col items-center gap-3">
+                        <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary"></i>
+                        <p class="text-gray-500 font-medium">กำลังดึงข้อมูล...</p>
+                    </div>
+                </div>
+
+                <div id="empty-list" class="text-center py-20 bg-white rounded-3xl border border-dashed border-gray-300 hidden">
+                    <div class="w-20 h-20 bg-indigo-50 text-primary rounded-full flex items-center justify-center mx-auto mb-4 text-3xl">
+                        <i class="fa-solid fa-qrcode"></i>
+                    </div>
+                    <h3 class="text-xl font-bold text-gray-800 mb-2">พื้นที่ยังว่างเปล่า</h3>
+                    <p class="text-gray-500">สร้าง QR Code ตัวแรกด้วยกล่องเครื่องมือด้านบนได้เลย</p>
+                </div>
+
+                <!-- Grid Modern Cards -->
+                <div id="qr-grid" class="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-4 gap-6 pb-10">
+                    <!-- Cards injected via JS -->
+                </div>
+            </div>
+
+            <!-- VIEW: ANALYTICS -->
+            <div id="view-analytics" class="app-view hidden fade-in max-w-5xl mx-auto w-full">
+                <div class="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+                    <h1 class="text-3xl font-extrabold text-gray-900">ภาพรวมสถิติเชิงลึก</h1>
+                </div>
+                
+                <div class="grid grid-cols-1 md:grid-cols-3 gap-6 mb-8">
+                    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between relative overflow-hidden">
+                        <div class="absolute -right-6 -top-6 w-24 h-24 bg-primary/5 rounded-full"></div>
+                        <div>
+                            <p class="text-sm text-gray-500 font-bold mb-1 uppercase tracking-wider">รหัส QR ทั้งหมด</p>
+                            <p id="stat-total-qr" class="text-4xl font-black text-gray-900">0</p>
+                        </div>
+                        <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-primary flex items-center justify-center text-2xl shadow-inner"><i class="fa-solid fa-qrcode"></i></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between relative overflow-hidden">
+                        <div class="absolute -right-6 -top-6 w-24 h-24 bg-green-500/5 rounded-full"></div>
+                        <div>
+                            <p class="text-sm text-gray-500 font-bold mb-1 uppercase tracking-wider">ยอดสแกนรวม</p>
+                            <p id="stat-total-scans" class="text-4xl font-black text-gray-900">0</p>
+                        </div>
+                        <div class="w-14 h-14 rounded-2xl bg-green-50 text-green-500 flex items-center justify-center text-2xl shadow-inner"><i class="fa-solid fa-eye"></i></div>
+                    </div>
+                    <div class="bg-white p-6 rounded-3xl border border-gray-100 shadow-sm flex items-center justify-between relative overflow-hidden">
+                        <div class="absolute -right-6 -top-6 w-24 h-24 bg-orange-500/5 rounded-full"></div>
+                        <div class="min-w-0 pr-2">
+                            <p class="text-sm text-gray-500 font-bold mb-1 uppercase tracking-wider">ฮิตที่สุด</p>
+                            <p id="stat-top-qr" class="text-lg font-extrabold text-gray-900 truncate">-</p>
+                        </div>
+                        <div class="w-14 h-14 rounded-2xl bg-orange-50 text-orange-500 flex items-center justify-center text-2xl shadow-inner shrink-0"><i class="fa-solid fa-trophy"></i></div>
+                    </div>
+                </div>
+                
+                <div class="bg-white rounded-3xl border border-gray-100 shadow-sm overflow-hidden">
+                    <div class="p-6 border-b border-gray-50 bg-gray-50/50">
+                        <h3 class="text-lg font-extrabold text-gray-900">อันดับการสแกนรายลิงก์</h3>
+                    </div>
+                    <div class="overflow-x-auto">
+                        <table class="w-full text-left border-collapse">
+                            <thead>
+                                <tr class="bg-white text-gray-400 text-xs uppercase tracking-widest border-b border-gray-100">
+                                    <th class="p-5 font-bold">ชื่อรหัส QR</th>
+                                    <th class="p-5 font-bold text-center">ประเภท</th>
+                                    <th class="p-5 font-bold text-right">ยอดสแกน</th>
+                                    <th class="p-5 font-bold text-center">วันที่สร้าง</th>
+                                </tr>
+                            </thead>
+                            <tbody id="analytics-table" class="text-sm divide-y divide-gray-50">
+                                <!-- Injected via JS -->
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            </div>
+
+            <!-- VIEW: SETTINGS (Profile, Billing, etc.) -->
+            <div id="view-settings" class="app-view hidden fade-in max-w-5xl mx-auto w-full">
+                <div class="flex flex-col md:flex-row gap-8">
+                    <!-- Settings Sidebar -->
+                    <div class="w-full md:w-64 shrink-0">
+                        <h2 class="text-2xl font-extrabold text-gray-900 mb-6">การตั้งค่า</h2>
+                        <nav class="space-y-1 flex flex-row md:flex-col overflow-x-auto md:overflow-visible pb-2 md:pb-0">
+                            <button onclick="switchSettingTab('profile')" id="stab-profile" class="stab-btn w-full text-left px-4 py-3 rounded-xl text-sm font-bold bg-indigo-50 text-primary transition shrink-0 border border-transparent"><i class="fa-solid fa-user-pen w-6 text-center"></i> ข้อมูลโปรไฟล์</button>
+                            <button onclick="switchSettingTab('billing')" id="stab-billing" class="stab-btn w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition shrink-0 border border-transparent"><i class="fa-solid fa-credit-card w-6 text-center"></i> บิลลิ่ง & แพ็กเกจ</button>
+                            <button onclick="switchSettingTab('domain')" id="stab-domain" class="stab-btn w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition shrink-0 border border-transparent"><i class="fa-solid fa-globe w-6 text-center"></i> โดเมนที่กำหนดเอง</button>
+                            <button onclick="switchSettingTab('team')" id="stab-team" class="stab-btn w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition shrink-0 border border-transparent"><i class="fa-solid fa-users w-6 text-center"></i> จัดการทีม</button>
+                            <button onclick="switchSettingTab('api')" id="stab-api" class="stab-btn w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition shrink-0 border border-transparent"><i class="fa-solid fa-code w-6 text-center"></i> API & Webhooks</button>
+                            <button onclick="switchSettingTab('support')" id="stab-support" class="stab-btn w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-gray-600 hover:bg-gray-100 transition shrink-0 border border-transparent"><i class="fa-regular fa-circle-question w-6 text-center"></i> ศูนย์ช่วยเหลือ</button>
+                            
+                            <!-- Admin Only Settings -->
+                            <div id="admin-settings-nav" class="hidden pt-6 mt-4 border-t border-gray-200">
+                                <p class="text-[10px] font-bold text-red-500 uppercase tracking-widest px-4 mb-2">เฉพาะผู้ดูแลระบบ</p>
+                                <button onclick="switchSettingTab('system')" id="stab-system" class="stab-btn w-full text-left px-4 py-3 rounded-xl text-sm font-bold text-red-500 hover:bg-red-50 hover:text-red-700 transition shrink-0 border border-transparent"><i class="fa-solid fa-gear w-6 text-center"></i> ตั้งค่าระบบส่วนกลาง</button>
+                            </div>
+                        </nav>
+                    </div>
+                    
+                    <!-- Settings Content Panels -->
+                    <div class="flex-1 bg-white rounded-3xl shadow-sm border border-gray-200 p-6 md:p-10 min-h-[500px]">
+                        
+                        <!-- Profile Tab -->
+                        <div id="scontent-profile" class="scontent-panel fade-in">
+                            <h3 class="text-2xl font-extrabold text-gray-900 mb-8">ข้อมูลโปรไฟล์</h3>
+                            <div class="space-y-5 max-w-md">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">อีเมลบัญชี (ไม่สามารถเปลี่ยนได้)</label>
+                                    <input type="email" id="set-profile-email" disabled class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">ชื่อที่แสดง (Display Name)</label>
+                                    <input type="text" id="set-profile-name" placeholder="ชื่อของคุณ" class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none font-medium">
+                                </div>
+                                <div class="pt-4">
+                                    <button onclick="saveProfileSettings()" class="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-secondary hover:shadow-lg hover:shadow-primary/30 transition w-full md:w-auto">บันทึกข้อมูล</button>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- Billing Tab -->
+                        <div id="scontent-billing" class="scontent-panel hidden fade-in">
+                            <h3 class="text-2xl font-extrabold text-gray-900 mb-8">บิลลิ่งและแพ็กเกจ</h3>
+                            <div class="p-6 bg-gradient-to-br from-indigo-50 to-purple-50 border border-indigo-100 rounded-2xl mb-6">
+                                <div class="flex justify-between items-center mb-4">
+                                    <h4 class="font-bold text-gray-800 text-lg">แพ็กเกจปัจจุบัน: <span class="text-primary">Free Plan</span></h4>
+                                    <span class="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full font-bold">Active</span>
+                                </div>
+                                <p class="text-gray-600 text-sm mb-6">คุณสามารถสร้าง Dynamic QR Code และอัปโหลดไฟล์ PDF ได้ 10MB ต่อไฟล์ รองรับสถิติพื้นฐาน</p>
+                                <button class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold hover:bg-secondary transition w-full sm:w-auto"><i class="fa-solid fa-crown mr-2"></i>อัปเกรดเป็น PRO</button>
+                            </div>
+                        </div>
+
+                        <!-- Domain Tab -->
+                        <div id="scontent-domain" class="scontent-panel hidden fade-in">
+                            <h3 class="text-2xl font-extrabold text-gray-900 mb-8">โดเมนที่กำหนดเอง <span class="bg-primary/10 text-primary text-xs px-2 py-1 rounded-md font-bold align-middle ml-2">PRO</span></h3>
+                            <p class="text-gray-500 mb-6">ใช้โดเมนของคุณเองสำหรับ Short links (เช่น qr.yourdomain.com) แทนโดเมนระบบ เพื่อความน่าเชื่อถือของแบรนด์</p>
+                            <div class="border-2 border-dashed border-gray-200 p-8 rounded-2xl text-center">
+                                <i class="fa-solid fa-globe text-4xl text-gray-300 mb-4"></i>
+                                <h4 class="font-bold text-gray-700 mb-2">ฟีเจอร์นี้สงวนไว้สำหรับแพ็กเกจ PRO</h4>
+                                <button class="text-primary font-bold hover:underline mt-2">อัปเกรดแพ็กเกจของคุณ</button>
+                            </div>
+                        </div>
+
+                        <!-- Team Tab -->
+                        <div id="scontent-team" class="scontent-panel hidden fade-in">
+                            <h3 class="text-2xl font-extrabold text-gray-900 mb-8">จัดการทีม</h3>
+                            <p class="text-gray-500 mb-6">เชิญสมาชิกในทีมเพื่อช่วยจัดการ QR Code ใน Workspace นี้</p>
+                            <div class="flex gap-3 mb-8 max-w-md">
+                                <input type="email" placeholder="ใส่อีเมลที่ต้องการเชิญ" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-primary outline-none">
+                                <button onclick="showToast('ส่งคำเชิญแล้ว (Demo)', 'success')" class="bg-dark text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition shrink-0">เชิญ</button>
+                            </div>
+                            <div class="border border-gray-200 rounded-xl divide-y divide-gray-100">
+                                <div class="flex justify-between items-center p-4">
+                                    <div class="flex items-center gap-3">
+                                        <div class="w-10 h-10 bg-primary text-white rounded-full flex items-center justify-center font-bold"><i class="fa-regular fa-user"></i></div>
+                                        <div>
+                                            <p class="font-bold text-gray-800 text-sm" id="team-owner-email">คุณ (Owner)</p>
+                                        </div>
+                                    </div>
+                                    <span class="text-xs font-bold text-gray-500">เจ้าของ</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- API Tab -->
+                        <div id="scontent-api" class="scontent-panel hidden fade-in">
+                            <h3 class="text-2xl font-extrabold text-gray-900 mb-8">API & Webhooks</h3>
+                            <div class="space-y-6">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">API Key ของคุณ</label>
+                                    <div class="flex gap-2">
+                                        <input type="password" value="sk_test_demo1234567890abcdef" disabled class="w-full max-w-sm px-4 py-2.5 bg-gray-50 border border-gray-200 rounded-xl text-gray-500 font-mono">
+                                        <button onclick="showToast('คัดลอก API Key แล้ว')" class="px-4 py-2.5 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-xl font-bold transition">คัดลอก</button>
+                                    </div>
+                                    <p class="text-xs text-gray-500 mt-2">ห้ามเปิดเผย API Key ให้บุคคลอื่นทราบเด็ดขาด</p>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Support Tab -->
+                        <div id="scontent-support" class="scontent-panel hidden fade-in">
+                            <h3 class="text-2xl font-extrabold text-gray-900 mb-6">ศูนย์ช่วยเหลือ</h3>
+                            <p class="text-gray-600 mb-8">พบปัญหาหรือมีข้อเสนอแนะ ติดต่อเราได้ตลอด 24 ชั่วโมง</p>
+                            <div class="grid grid-cols-1 md:grid-cols-2 gap-6">
+                                <a href="#" class="p-6 border border-gray-200 rounded-2xl hover:border-primary hover:shadow-md transition group block">
+                                    <i class="fa-solid fa-book text-3xl text-gray-400 group-hover:text-primary transition mb-4"></i>
+                                    <h4 class="font-bold text-gray-800 mb-1">คู่มือการใช้งาน (Docs)</h4>
+                                    <p class="text-sm text-gray-500">อ่านวิธีสร้างและใช้งานระบบแบบละเอียดยิบ</p>
+                                </a>
+                                <a href="#" class="p-6 border border-gray-200 rounded-2xl hover:border-primary hover:shadow-md transition group block">
+                                    <i class="fa-solid fa-envelope-open-text text-3xl text-gray-400 group-hover:text-primary transition mb-4"></i>
+                                    <h4 class="font-bold text-gray-800 mb-1">ส่งอีเมลหาทีมงาน</h4>
+                                    <p class="text-sm text-gray-500">support@nexusqr.com</p>
+                                </a>
+                            </div>
+                        </div>
+
+                        <!-- System Tab (Admin Only) -->
+                        <div id="scontent-system" class="scontent-panel hidden fade-in">
+                            <h3 class="text-2xl font-extrabold text-red-600 mb-8"><i class="fa-solid fa-gear mr-2"></i> ตั้งค่าระบบส่วนกลาง (Admin)</h3>
+                            <div class="space-y-6 max-w-lg bg-red-50/30 p-6 rounded-2xl border border-red-100">
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-800 mb-2">ข้อความประกาศบน Header (แสดงให้ทุกคนเห็น)</label>
+                                    <input type="text" id="set-sys-announcement" placeholder="เช่น แจ้งปิดปรับปรุงระบบคืนนี้..." class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none font-medium">
+                                    <p class="text-xs text-gray-500 mt-2">หากปล่อยว่าง ระบบจะซ่อนแถบประกาศอัตโนมัติ</p>
+                                </div>
+                                <div>
+                                    <label class="flex items-center gap-3 cursor-pointer">
+                                        <input type="checkbox" id="set-sys-allow-signup" checked class="w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary">
+                                        <span class="text-sm font-bold text-gray-800">อนุญาตให้ผู้ใช้ใหม่สมัครสมาชิก</span>
+                                    </label>
+                                </div>
+                                <div class="pt-4 border-t border-red-100">
+                                    <button onclick="saveSystemSettings()" class="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition w-full md:w-auto shadow-sm hover:shadow-md">อัปเดตระบบส่วนกลาง</button>
+                                </div>
+                            </div>
+                        </div>
+
+                    </div>
+                </div>
+            </div>
+
+        </main>
+    </div>
+
+    <!-- Edit QR Modal -->
+    <div id="edit-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[70] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-6 md:p-8 max-w-lg w-full relative shadow-2xl fade-in">
+            <button onclick="closeEditModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-50 rounded-full w-8 h-8 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-xl font-extrabold text-gray-900 mb-4 flex items-center gap-2"><i class="fa-solid fa-pen-to-square text-primary"></i> แก้ไขปลายทาง</h2>
+            <p class="text-sm text-gray-500 mb-6">ผู้ใช้ที่สแกน QR Code เดิมจะถูกเปลี่ยนเส้นทางมายังลิงก์ใหม่นี้ทันที</p>
+            
+            <form id="form-edit-qr" class="space-y-4">
+                <input type="hidden" id="edit-qr-id">
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">ชื่อ QR Code</label>
+                    <input type="text" id="edit-qr-name" required class="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
+                </div>
+                <div>
+                    <label class="block text-xs font-bold text-gray-500 mb-2 uppercase tracking-wider">ลิงก์ปลายทางใหม่ (URL)</label>
+                    <input type="url" id="edit-qr-url" required class="w-full px-4 py-3 bg-gray-50 rounded-xl border border-gray-200 focus:ring-2 focus:ring-primary focus:border-primary outline-none transition">
+                </div>
+                <div class="pt-4 flex gap-3">
+                    <button type="button" onclick="closeEditModal()" class="flex-1 py-3 px-4 bg-gray-100 text-gray-700 rounded-xl hover:bg-gray-200 font-bold transition">ยกเลิก</button>
+                    <button type="submit" id="btn-save-edit" class="flex-1 py-3 px-4 bg-primary text-white rounded-xl hover:bg-secondary font-bold transition flex justify-center items-center gap-2">
+                        บันทึกการแก้ไข <i class="fa-solid fa-circle-notch fa-spin hidden"></i>
+                    </button>
+                </div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Download Options Modal -->
+    <div id="download-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[75] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full relative shadow-2xl fade-in text-center">
+            <button onclick="closeDownloadModal()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-50 rounded-full w-8 h-8 flex items-center justify-center transition">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <h2 class="text-xl font-extrabold text-gray-900 mb-2">ดาวน์โหลดรูปภาพ</h2>
+            <p id="dl-qr-name" class="text-sm text-gray-500 mb-8 truncate font-medium bg-gray-50 px-3 py-1 rounded-lg inline-block">ชื่อคิวอาร์โค้ด</p>
+            
+            <div class="grid grid-cols-2 gap-3">
+                <button onclick="processDownload('png')" class="flex flex-col items-center justify-center gap-2 p-5 bg-white hover:bg-indigo-50 hover:border-primary border border-gray-200 rounded-2xl transition group shadow-sm hover:shadow-md">
+                    <i class="fa-regular fa-image text-3xl text-gray-400 group-hover:text-primary transition"></i>
+                    <span class="font-extrabold text-gray-700 text-sm">PNG</span>
+                </button>
+                <button onclick="processDownload('jpeg')" class="flex flex-col items-center justify-center gap-2 p-5 bg-white hover:bg-indigo-50 hover:border-primary border border-gray-200 rounded-2xl transition group shadow-sm hover:shadow-md">
+                    <i class="fa-solid fa-image text-3xl text-gray-400 group-hover:text-primary transition"></i>
+                    <span class="font-extrabold text-gray-700 text-sm">JPG</span>
+                </button>
+                <button onclick="processDownload('svg')" class="flex flex-col items-center justify-center gap-2 p-5 bg-white hover:bg-indigo-50 hover:border-primary border border-gray-200 rounded-2xl transition group shadow-sm hover:shadow-md">
+                    <i class="fa-solid fa-bezier-curve text-3xl text-gray-400 group-hover:text-primary transition"></i>
+                    <span class="font-extrabold text-gray-700 text-sm">SVG (Vector)</span>
+                </button>
+                <button onclick="processDownload('pdf')" class="flex flex-col items-center justify-center gap-2 p-5 bg-white hover:bg-indigo-50 hover:border-primary border border-gray-200 rounded-2xl transition group shadow-sm hover:shadow-md">
+                    <i class="fa-solid fa-file-pdf text-3xl text-gray-400 group-hover:text-primary transition"></i>
+                    <span class="font-extrabold text-gray-700 text-sm">PDF Doc</span>
+                </button>
+            </div>
+            <p class="text-[11px] text-gray-400 mt-6 text-center"><i class="fa-solid fa-circle-info"></i> หากระบบไม่โหลดไฟล์ ให้เซฟภาพจากหน้าต่างที่เด้งขึ้นมาได้เลยครับ</p>
+        </div>
+    </div>
+
+    <!-- Scan Details Modal -->
+    <div id="scan-details-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[75] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl w-full max-w-2xl relative shadow-2xl fade-in flex flex-col max-h-[80vh] overflow-hidden">
+            <div class="p-6 border-b border-gray-100 flex justify-between items-center shrink-0 bg-gray-50/50">
+                <div>
+                    <h2 id="scan-details-title" class="text-xl font-extrabold text-gray-900 truncate">รายละเอียดการสแกน</h2>
+                    <p class="text-xs text-green-600 mt-1 font-bold flex items-center gap-1 uppercase tracking-wider"><i class="fa-solid fa-circle text-[8px] animate-pulse"></i> Live Analytics</p>
+                </div>
+                <button onclick="closeScanDetails()" class="text-gray-400 hover:text-gray-700 bg-white shadow-sm rounded-full w-8 h-8 flex items-center justify-center transition">
+                    <i class="fa-solid fa-xmark"></i>
+                </button>
+            </div>
+            
+            <div class="p-6 overflow-y-auto flex-1 bg-white">
+                <div id="scan-details-loading" class="flex justify-center py-8">
+                    <i class="fa-solid fa-circle-notch fa-spin text-3xl text-primary"></i>
+                </div>
+                <div class="border border-gray-200 rounded-2xl overflow-hidden">
+                    <table class="w-full text-left border-collapse">
+                        <thead>
+                            <tr class="bg-gray-50 text-gray-500 text-xs uppercase tracking-widest border-b border-gray-200">
+                                <th class="p-4 font-bold">วัน-เวลา ที่เข้าชม</th>
+                                <th class="p-4 font-bold">ระบบปฏิบัติการ (OS)</th>
+                                <th class="p-4 font-bold">เบราว์เซอร์</th>
+                            </tr>
+                        </thead>
+                        <tbody id="scan-details-body" class="text-sm divide-y divide-gray-100">
+                            <!-- Injected via JS -->
+                        </tbody>
+                    </table>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- ================= FIREBASE & APP LOGIC ================= -->
+    <script type="module">
+        import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
+        import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where, updateDoc, increment, onSnapshot, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+
+        // --- Firebase Config ---
+        const firebaseConfig = {
+            apiKey: "AIzaSyAVMcf_f3ytnpPptd5bTaOjyGblG7Vw0AA",
+            authDomain: "dynamics-qr.firebaseapp.com",
+            projectId: "dynamics-qr",
+            storageBucket: "dynamics-qr.firebasestorage.app",
+            messagingSenderId: "11257712570",
+            appId: "1:11257712570:web:8fc95a48c55ee206105783"
+        };
+
+        const app = initializeApp(firebaseConfig);
+        const auth = getAuth(app);
+        const googleProvider = new GoogleAuthProvider();
+        const db = getFirestore(app);
+        window.jspdf = window.jspdf || {};
+
+        // --- Cloudinary Config ---
+        const CLOUDINARY_CLOUD_NAME = 'dm6kuksrr'; 
+        const CLOUDINARY_API_KEY = '613527247357135';
+        
+        // ฟังก์ชันถอดรหัส Secret Key ที่ถูกซ่อนไว้เป็น Base64
+        const _getCSec = () => atob('c0gxMmpCQlBNTDJocDhhZkNfVFlGMnhfc0NF');
+
+        const ADMIN_EMAIL = "patiphanbomroechit@gmail.com";
+        const COLLECTION_NAME = "hovercode_assets"; 
+        
+        let currentUser = null;
+        let isAdmin = false;
+        let allItems = [];
+        let currentDownloadItem = null;
+        let activeView = 'dashboard';
+        
+        let itemsUnsubscribe = null;
+        let scanDetailsUnsubscribe = null;
+        let systemUnsubscribe = null;
+
+        let quickType = 'url';
+        let quickColor = '#0f172a'; 
+        let quickFileObj = null;
+
+        const safeEl = (id) => document.getElementById(id);
+        
+        const generateShortCode = (length = 4) => {
+            const chars = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            let result = '';
+            for (let i = 0; i < length; i++) result += chars[Math.floor(Math.random() * chars.length)];
+            return result;
+        };
+
+        // --- Initialization ---
+        async function init() {
+            // Check short link redirect
+            const urlParams = new URLSearchParams(window.location.search);
+            const shortCode = urlParams.get('s');
+            
+            if (shortCode) {
+                try {
+                    const q = query(collection(db, COLLECTION_NAME), where("shortCode", "==", shortCode));
+                    const snapshot = await getDocs(q);
+                    
+                    if (!snapshot.empty) {
+                        const targetDoc = snapshot.docs[0];
+                        const data = targetDoc.data();
+
+                        if (data.status === 'paused') {
+                            if(safeEl('sys-loading-text')) safeEl('sys-loading-text').innerText = 'ลิงก์นี้ถูกระงับการใช้งานโดยเจ้าของ';
+                            if(safeEl('sys-loading-text')) safeEl('sys-loading-text').classList.replace('text-gray-700', 'text-red-500');
+                            document.querySelector('.animate-spin')?.classList.add('hidden');
+                            document.querySelector('.animate-pulse')?.classList.replace('text-primary', 'text-red-500');
+                            document.querySelector('.animate-pulse')?.classList.remove('animate-pulse', 'animate-spin');
+                            return; 
+                        }
+                        
+                        // Parse User-Agent for detailed tracking
+                        const ua = navigator.userAgent;
+                        let os = "อื่นๆ";
+                        if (ua.indexOf("Win") !== -1) os = "Windows";
+                        if (ua.indexOf("Mac") !== -1) os = "MacOS";
+                        if (ua.indexOf("Linux") !== -1) os = "Linux";
+                        if (ua.indexOf("Android") !== -1) os = "Android";
+                        if (ua.indexOf("like Mac") !== -1) os = "iOS";
+
+                        let browser = "อื่นๆ";
+                        if (ua.indexOf("Chrome") !== -1) browser = "Chrome";
+                        else if (ua.indexOf("Safari") !== -1) browser = "Safari";
+                        else if (ua.indexOf("Firefox") !== -1) browser = "Firefox";
+                        else if (ua.indexOf("Edge") !== -1) browser = "Edge";
+                        
+                        try {
+                            await addDoc(collection(db, "hovercode_analytics"), { qrId: targetDoc.id, timestamp: Date.now(), os: os, browser: browser });
+                        } catch(e) {}
+                        await updateDoc(doc(db, COLLECTION_NAME, targetDoc.id), { scans: increment(1) }).catch(e => {});
+
+                        // ===== NEW: FILE DOWNLOAD PAGE LOGIC =====
+                        const isFileUrl = data.type === 'file' || (data.type === 'url' && data.destination.match(/\.(pdf|doc|docx|zip|rar|jpg|jpeg|png|gif|webp)$/i));
+                        
+                        if (isFileUrl) {
+                            if(safeEl('sys-loading-text')) safeEl('sys-loading-text').innerText = 'กำลังเตรียมหน้าแสดงไฟล์...';
+                            
+                            setTimeout(() => {
+                                safeEl('sys-loading')?.classList.add('hidden');
+                                safeEl('page-landing')?.classList.add('hidden');
+                                safeEl('page-app')?.classList.add('hidden');
+                                
+                                const fileUrl = data.destination;
+                                let downloadUrl = fileUrl;
+                                
+                                // Cloudinary force download hack
+                                if (downloadUrl.includes('cloudinary.com') && downloadUrl.includes('/upload/')) {
+                                    downloadUrl = downloadUrl.replace('/upload/', '/upload/fl_attachment/');
+                                }
+                                
+                                const fileName = data.name || 'ไฟล์ของคุณ';
+                                const ext = (fileUrl.split('.').pop() || '').toLowerCase();
+                                const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg'].includes(ext);
+                                const isPdf = ext === 'pdf' || fileUrl.toLowerCase().includes('.pdf');
+                                
+                                let previewHtml = '';
+                                if (isImage) {
+                                    previewHtml = `<div class="bg-gray-100 rounded-2xl p-2 mb-6 flex justify-center border border-gray-200 h-[40vh]"><img src="${fileUrl}" class="max-w-full max-h-full object-contain rounded-xl shadow-sm" alt="Preview"></div>`;
+                                } else if (isPdf) {
+                                    previewHtml = `<div class="bg-gray-100 rounded-2xl p-2 mb-6 w-full h-[60vh] border border-gray-200 shadow-inner overflow-hidden"><iframe src="${fileUrl}" class="w-full h-full rounded-xl border-none" frameborder="0"></iframe></div>`;
+                                } else {
+                                    let iconClass = 'fa-file-arrow-down';
+                                    if(['zip','rar'].includes(ext)) iconClass = 'fa-file-zipper text-amber-500';
+                                    else if(['doc','docx'].includes(ext)) iconClass = 'fa-file-word text-blue-600';
+                                    
+                                    previewHtml = `<div class="w-32 h-32 bg-gray-50 rounded-full flex items-center justify-center mx-auto mb-6 shadow-inner border border-gray-100"><i class="fa-solid ${iconClass} text-6xl text-primary"></i></div>`;
+                                }
+                                
+                                const dlPage = document.createElement('div');
+                                dlPage.className = 'fixed inset-0 bg-slate-100 z-[200] flex flex-col p-4 md:p-8 overflow-y-auto font-sans text-gray-800';
+                                dlPage.innerHTML = `
+                                    <div class="max-w-4xl w-full mx-auto bg-white rounded-3xl shadow-xl border border-gray-200 overflow-hidden fade-in mt-auto mb-auto">
+                                        <div class="h-2 w-full bg-gradient-to-r from-primary to-secondary"></div>
+                                        <div class="p-6 md:p-10 text-center">
+                                            <h2 class="text-2xl md:text-3xl font-black text-gray-900 mb-2">หน้าต่างแสดงไฟล์</h2>
+                                            <p class="text-gray-500 mb-6 font-medium">แชร์โดย NexusQR System</p>
+                                            
+                                            ${previewHtml}
+                                            
+                                            <div class="flex flex-col sm:flex-row gap-4 justify-center mt-6">
+                                                <a href="${downloadUrl}" class="flex-1 bg-gradient-to-r from-primary to-secondary text-white py-4 px-8 rounded-2xl font-bold text-lg hover:shadow-lg hover:shadow-primary/40 hover:-translate-y-1 transition-all flex items-center justify-center gap-3">
+                                                    <i class="fa-solid fa-download"></i> ดาวน์โหลดไฟล์
+                                                </a>
+                                                <a href="${fileUrl}" target="_blank" class="flex-1 bg-white border-2 border-gray-200 text-gray-700 py-4 px-8 rounded-2xl font-bold text-lg hover:bg-gray-50 hover:border-gray-300 transition-all flex items-center justify-center gap-3">
+                                                    <i class="fa-solid fa-arrow-up-right-from-square"></i> เปิดดูต้นฉบับ
+                                                </a>
+                                            </div>
+                                        </div>
+                                    </div>
+                                `;
+                                document.body.appendChild(dlPage);
+                            }, 800);
+                            return;
+                        }
+                        // =========================================
+
+                        if(safeEl('sys-loading-text')) safeEl('sys-loading-text').innerText = 'กำลังส่งต่อไปยังปลายทาง...';
+                        window.location.replace(data.destination);
+                        return;
+                    } else {
+                        if(safeEl('sys-loading-text')) safeEl('sys-loading-text').innerText = 'ไม่พบลิงก์ปลายทาง';
+                        if(safeEl('sys-loading-text')) safeEl('sys-loading-text').classList.replace('text-gray-700', 'text-red-500');
+                        document.querySelector('.animate-spin')?.classList.add('hidden');
+                        document.querySelector('.animate-pulse')?.classList.remove('animate-pulse');
+                        setTimeout(() => window.location.href = window.location.pathname, 3000);
+                        return;
+                    }
+                } catch (error) {
+                    if(safeEl('sys-loading-text')) safeEl('sys-loading-text').innerText = 'เกิดข้อผิดพลาดในการเชื่อมต่อ';
+                }
+            }
+
+            // Setup Realtime System Banner
+            systemUnsubscribe = onSnapshot(doc(db, "app_settings", "global"), (docSnap) => {
+                if (docSnap.exists()) {
+                    const sysData = docSnap.data();
+                    const banner = safeEl('sys-announcement');
+                    const bannerText = safeEl('sys-announcement-text');
+                    if(sysData.announcement && banner && bannerText) {
+                        bannerText.innerText = sysData.announcement;
+                        banner.classList.remove('hidden');
+                    } else if (banner) {
+                        banner.classList.add('hidden');
+                    }
+                    if(safeEl('set-sys-announcement')) safeEl('set-sys-announcement').value = sysData.announcement || '';
+                }
+            });
+
+            onAuthStateChanged(auth, async (user) => {
+                currentUser = user;
+                safeEl('sys-loading')?.classList.add('opacity-0');
+                setTimeout(() => safeEl('sys-loading')?.classList.add('hidden'), 300);
+                
+                if (user) {
+                    isAdmin = (user.email === ADMIN_EMAIL);
+                    
+                    // Fetch or Create Profile
+                    try {
+                        const userDocRef = doc(db, "hovercode_users", user.uid);
+                        const userDoc = await getDoc(userDocRef);
+                        let displayName = user.displayName || user.email.split('@')[0];
+                        if (userDoc.exists()) {
+                            displayName = userDoc.data().displayName || displayName;
+                        } else {
+                            await setDoc(userDocRef, { email: user.email, displayName: displayName, createdAt: Date.now() });
+                        }
+                        
+                        if(safeEl('user-email-text')) safeEl('user-email-text').innerText = displayName;
+                        if(safeEl('drop-email')) safeEl('drop-email').innerText = user.email;
+                        if(safeEl('team-owner-email')) safeEl('team-owner-email').innerText = `${displayName} (คุณ)`;
+                        
+                        // Populate Settings Form
+                        if(safeEl('set-profile-email')) safeEl('set-profile-email').value = user.email;
+                        if(safeEl('set-profile-name')) safeEl('set-profile-name').value = displayName;
+
+                    } catch(e) { console.log(e); }
+                    
+                    if(isAdmin) {
+                        if(safeEl('nav-admin')) safeEl('nav-admin').classList.remove('hidden');
+                        if(safeEl('nav-admin-mobile')) safeEl('nav-admin-mobile').classList.remove('hidden');
+                        if(safeEl('admin-settings-nav')) safeEl('admin-settings-nav').classList.remove('hidden');
+                    }
+                    
+                    safeEl('page-landing')?.classList.add('hidden');
+                    safeEl('page-app')?.classList.remove('hidden');
+                    toggleLoginModal(false);
+                    navTo('dashboard'); 
+                } else {
+                    safeEl('page-landing')?.classList.remove('hidden');
+                    safeEl('page-app')?.classList.add('hidden');
+                    if(itemsUnsubscribe) { itemsUnsubscribe(); itemsUnsubscribe = null; }
+                }
+            });
+        }
+
+        // --- Core Functions ---
+        window.navTo = (viewId) => {
+            activeView = viewId;
+            document.querySelectorAll('.app-view').forEach(v => v.classList.add('hidden'));
+            safeEl(`view-${viewId}`)?.classList.remove('hidden');
+            
+            document.querySelectorAll('.top-nav-btn').forEach(m => {
+                m.classList.remove('text-primary', 'font-bold', 'border-primary');
+                if(!m.classList.contains('text-red-400') && !m.classList.contains('text-red-600')) {
+                    m.classList.add('text-gray-500', 'border-transparent');
+                } else {
+                    m.classList.add('border-transparent');
+                }
+            });
+            
+            const activeMenu = safeEl(`nav-${viewId}`);
+            if(activeMenu && viewId !== 'admin' && viewId !== 'settings') {
+                activeMenu.classList.remove('text-gray-500', 'border-transparent');
+                activeMenu.classList.add('text-primary', 'font-bold', 'border-primary');
+            } else if (activeMenu && viewId === 'admin') {
+                activeMenu.classList.remove('border-transparent');
+                activeMenu.classList.add('font-bold', 'border-red-400');
+            }
+            
+            const titles = {'dashboard':'แผงควบคุม (Dashboard)', 'analytics':'ภาพรวมสถิติ (Analytics)', 'admin':'ผู้ดูแลระบบ (Admin Panel)', 'settings':'การตั้งค่า (Settings)'};
+            if(safeEl('header-title')) safeEl('header-title').innerText = titles[viewId] || '';
+
+            if(viewId === 'dashboard' || viewId === 'analytics' || viewId === 'admin') subscribeToData(viewId);
+        };
+
+        window.showFeatureNotAvailable = () => {
+            showToast("ฟีเจอร์นี้อยู่ระหว่างการพัฒนา!", "info");
+        };
+
+        window.navToSettings = (tab = 'profile') => {
+            navTo('settings');
+            window.switchSettingTab(tab);
+            const profileDropdown = safeEl('profile-dropdown');
+            if(profileDropdown) {
+                profileDropdown.classList.add('opacity-0', 'scale-95');
+                setTimeout(() => { profileDropdown.classList.add('hidden'); }, 200);
+            }
+        };
+
+        window.switchSettingTab = (tab) => {
+            document.querySelectorAll('.stab-btn').forEach(btn => {
+                btn.classList.remove('bg-indigo-50', 'text-primary', 'border-primary', 'bg-red-50', 'text-red-700', 'border-red-500');
+                if(!btn.classList.contains('text-red-500')) btn.classList.add('text-gray-600', 'border-transparent');
+                else btn.classList.add('border-transparent');
+            });
+            
+            const activeBtn = safeEl(`stab-${tab}`);
+            if(activeBtn) {
+                if(!activeBtn.classList.contains('text-red-500')) {
+                    activeBtn.classList.remove('text-gray-600', 'border-transparent');
+                    activeBtn.classList.add('bg-indigo-50', 'text-primary', 'border-primary');
+                } else {
+                    activeBtn.classList.remove('border-transparent');
+                    activeBtn.classList.add('bg-red-50', 'text-red-700', 'border-red-500');
+                }
+            }
+
+            document.querySelectorAll('.scontent-panel').forEach(p => p.classList.add('hidden'));
+            safeEl(`scontent-${tab}`)?.classList.remove('hidden');
+        };
+
+        // Profile Dropdown Toggle Logic
+        const profileBtn = safeEl('profile-btn');
+        const profileDropdown = safeEl('profile-dropdown');
+        if(profileBtn && profileDropdown) {
+            profileBtn.addEventListener('click', (e) => {
+                e.stopPropagation();
+                if(profileDropdown.classList.contains('hidden')) {
+                    profileDropdown.classList.remove('hidden');
+                    setTimeout(() => {
+                        profileDropdown.classList.remove('opacity-0', 'scale-95');
+                    }, 10);
+                } else {
+                    profileDropdown.classList.add('opacity-0', 'scale-95');
+                    setTimeout(() => {
+                        profileDropdown.classList.add('hidden');
+                    }, 200);
+                }
+            });
+            document.addEventListener('click', (e) => {
+                if(!profileBtn.contains(e.target) && !profileDropdown.contains(e.target)) {
+                    profileDropdown.classList.add('opacity-0', 'scale-95');
+                    setTimeout(() => {
+                        profileDropdown.classList.add('hidden');
+                    }, 200);
+                }
+            });
+        }
+
+        // Profile & System Saves
+        window.saveProfileSettings = async () => {
+            if(!currentUser) return;
+            const newName = safeEl('set-profile-name')?.value.trim();
+            if(!newName) return showToast("กรุณาใส่ชื่อที่แสดง", "error");
+            
+            try {
+                await setDoc(doc(db, "hovercode_users", currentUser.uid), { displayName: newName }, { merge: true });
+                if(safeEl('user-email-text')) safeEl('user-email-text').innerText = newName;
+                if(safeEl('team-owner-email')) safeEl('team-owner-email').innerText = `${newName} (คุณ)`;
+                showToast("อัปเดตโปรไฟล์เรียบร้อยแล้ว");
+            } catch(e) {
+                showToast("บันทึกข้อมูลล้มเหลว", "error");
+            }
+        };
+
+        window.saveSystemSettings = async () => {
+            if(!isAdmin) return;
+            const txt = safeEl('set-sys-announcement')?.value.trim() || "";
+            try {
+                await setDoc(doc(db, "app_settings", "global"), { announcement: txt }, { merge: true });
+                showToast("อัปเดตระบบส่วนกลางเรียบร้อย");
+            } catch(e) {
+                showToast("อัปเดตล้มเหลว ตรวจสอบสิทธิ์", "error");
+            }
+        };
+
+        // REAL-TIME SYNC
+        function subscribeToData(viewId) {
+            if (!currentUser) return;
+            if (itemsUnsubscribe) { itemsUnsubscribe(); itemsUnsubscribe = null; }
+
+            if(viewId === 'dashboard') {
+                safeEl('loading-list')?.classList.remove('hidden');
+                safeEl('empty-list')?.classList.add('hidden');
+            }
+
+            let q = (isAdmin && viewId === 'admin') 
+                ? collection(db, COLLECTION_NAME) 
+                : query(collection(db, COLLECTION_NAME), where("userId", "==", currentUser.uid));
+            
+            itemsUnsubscribe = onSnapshot(q, (snapshot) => {
+                allItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
+                allItems.sort((a, b) => b.createdAt - a.createdAt);
+                
+                safeEl('loading-list')?.classList.add('hidden');
+                
+                if(activeView === 'dashboard') renderQRList();
+                if(activeView === 'analytics') renderAnalytics();
+                if(activeView === 'admin' && isAdmin) renderAdminTable();
+            }, (error) => {
+                console.error(error);
+                showToast("การเชื่อมต่อขัดข้อง โปรดเช็คเน็ต", "error");
+                safeEl('loading-list')?.classList.add('hidden');
+            });
+        }
+
+        // Render Dashboard Cards
+        function renderQRList() {
+            const grid = safeEl('qr-grid');
+            if(!grid) return;
+            if (allItems.length === 0) {
+                safeEl('empty-list')?.classList.remove('hidden');
+                grid.innerHTML = '';
+                return;
+            } else {
+                safeEl('empty-list')?.classList.add('hidden');
+            }
+
+            grid.innerHTML = allItems.map(item => {
+                const isStatic = item.type === 'text';
+                const shortLink = isStatic ? 'Static QR' : `${window.location.origin}${window.location.pathname}?s=${item.shortCode}`;
+                const renderData = isStatic ? item.destination : shortLink;
+                
+                const currentStatus = item.status || 'active';
+                const isPaused = currentStatus === 'paused';
+                const typeIcon = item.type === 'url' ? 'fa-link' : item.type === 'file' ? 'fa-file' : 'fa-font';
+                const fColor = (item.color || '#0f172a').replace('#', '');
+                const thumbUrl = `https://api.qrserver.com/v1/create-qr-code/?size=300x300&data=${encodeURIComponent(renderData)}&color=${fColor}&bgcolor=ffffff&margin=2`;
+
+                return `
+                <div class="bg-white border border-gray-200 rounded-3xl overflow-hidden hover:shadow-xl hover:shadow-primary/5 transition-all duration-300 group relative flex flex-col h-full">
+                    ${isPaused ? `<div class="absolute top-4 right-4 bg-red-100 text-red-600 text-[10px] font-black px-2 py-1 rounded-lg z-10 shadow-sm uppercase tracking-wider">ระงับใช้งาน</div>` : ''}
+                    
+                    <div class="bg-gray-50/50 p-6 flex flex-col items-center justify-center relative aspect-square border-b border-gray-100 ${isPaused ? 'opacity-40 grayscale' : ''}">
+                        <img src="${thumbUrl}" class="w-3/4 h-3/4 object-contain mix-blend-multiply transition-transform duration-300 group-hover:scale-105" alt="QR">
+                        
+                        <button onclick="openDownloadModal('${item.id}')" class="qr-overlay-btn absolute bottom-4 bg-dark text-white px-5 py-2.5 rounded-full text-sm font-bold flex items-center gap-2 shadow-lg">
+                            <i class="fa-solid fa-download"></i> ดาวน์โหลด
+                        </button>
+                    </div>
+                    
+                    <div class="p-5 flex-1 flex flex-col">
+                        <div class="flex justify-between items-start mb-1">
+                            <h3 class="font-extrabold text-gray-900 truncate pr-2 text-lg" title="${item.name}">${item.name}</h3>
+                            <span class="bg-indigo-50 text-primary text-[9px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid ${typeIcon}"></i> ${item.type}</span>
+                        </div>
+                        
+                        <p class="text-[11px] text-gray-500 truncate mb-4 font-mono bg-gray-50 px-2 py-1 rounded-md border border-gray-100 ${isPaused ? 'line-through' : ''}">${isStatic ? item.destination : shortLink}</p>
+                        
+                        <div class="mt-auto pt-4 border-t border-gray-100 flex justify-between items-center">
+                            <span class="text-sm text-gray-700 font-bold cursor-pointer hover:text-primary transition flex items-center gap-1.5 bg-gray-50 px-2.5 py-1 rounded-lg border border-gray-200" onclick="openScanDetails('${item.id}')">
+                                <i class="fa-solid fa-chart-simple text-primary"></i> ${item.scans || 0}
+                            </span>
+                            
+                            <div class="flex gap-1">
+                                <button onclick="window.copyText('${isStatic ? item.destination : shortLink}')" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-indigo-50 rounded-lg transition" title="คัดลอกลิงก์"><i class="fa-regular fa-copy"></i></button>
+                                ${!isStatic ? `<a href="${item.destination}" target="_blank" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-indigo-50 rounded-lg transition" title="เปิดลิงก์/ไฟล์ต้นฉบับ"><i class="fa-solid fa-arrow-up-right-from-square text-sm"></i></a>` : ''}
+                                ${!isStatic ? `<button onclick="openEditModal('${item.id}', '${item.destination}', '${item.name}')" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-primary hover:bg-indigo-50 rounded-lg transition" title="แก้ไข"><i class="fa-solid fa-pen-to-square"></i></button>` : ''}
+                                ${!isStatic ? `<button onclick="toggleQRStatus('${item.id}', '${currentStatus}')" class="w-8 h-8 flex items-center justify-center text-gray-500 ${isPaused ? 'hover:text-green-500 hover:bg-green-50' : 'hover:text-amber-500 hover:bg-amber-50'} rounded-lg transition" title="${isPaused ? 'เปิดใช้งาน' : 'ระงับชั่วคราว'}"><i class="fa-solid ${isPaused ? 'fa-play' : 'fa-pause'}"></i></button>` : ''}
+                                <button onclick="deleteQR('${item.id}', '${item.cloudinaryPublicId || ''}', '${item.cloudinaryResourceType || 'image'}')" class="w-8 h-8 flex items-center justify-center text-gray-500 hover:text-red-500 hover:bg-red-50 rounded-lg transition" title="ลบถาวร"><i class="fa-solid fa-trash-can"></i></button>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+                `;
+            }).join('');
+        }
+
+        // Quick Create Logic
+        window.selectQuickType = (type) => {
+            quickType = type;
+            ['url', 'file', 'text'].forEach(t => {
+                const btn = safeEl(`qt-${t}`);
+                const wrap = safeEl(`quick-${t}-wrap`);
+                if(btn && wrap) {
+                    if(t === type) {
+                        btn.classList.add('bg-white', 'text-primary', 'shadow-sm');
+                        btn.classList.remove('text-gray-500');
+                        wrap.classList.remove('hidden');
+                    } else {
+                        btn.classList.remove('bg-white', 'text-primary', 'shadow-sm');
+                        btn.classList.add('text-gray-500');
+                        wrap.classList.add('hidden');
+                    }
+                }
+            });
+            
+            if(safeEl('quick-file-name')) {
+                if(type === 'file') safeEl('quick-file-name').innerText = 'คลิกเพื่อเลือกไฟล์ (PDF, รูปภาพ ฯลฯ)';
+            }
+        };
+
+        window.setQuickColor = (hex) => {
+            quickColor = hex;
+            document.querySelectorAll('.qc-btn').forEach(b => b.classList.remove('ring-2', 'ring-offset-2', 'ring-slate-900'));
+            const btn = document.querySelector(`.qc-btn[onclick="setQuickColor('${hex}')"]`);
+            if(btn) btn.classList.add('ring-2', 'ring-offset-2', 'ring-slate-900');
+            else if(safeEl('quick-color-picker')) safeEl('quick-color-picker').value = hex;
+        };
+
+        const quickFileEl = safeEl('quick-file');
+        if (quickFileEl) {
+            quickFileEl.addEventListener('change', (e) => {
+                if(e.target.files.length > 0) {
+                    quickFileObj = e.target.files[0];
+                    if(quickFileObj.size > 10 * 1024 * 1024) {
+                        showToast("ขนาดไฟล์ต้องไม่เกิน 10MB", "error");
+                        quickFileObj = null; return;
+                    }
+                    if(safeEl('quick-file-name')) {
+                        safeEl('quick-file-name').innerText = quickFileObj.name;
+                        safeEl('quick-file-name').classList.add('text-primary');
+                    }
+                }
+            });
+        }
+
+        window.quickSaveQR = async () => {
+            const btn = safeEl('btn-quick-save');
+            if(!btn) return;
+            const spin = btn.querySelector('.fa-circle-notch');
+            const progressWrap = safeEl('quick-progress-wrap');
+            const statusText = safeEl('quick-progress-status-text');
+            const sizeText = safeEl('quick-progress-size');
+            
+            let finalDestination = "";
+            let cloudinaryPublicId = null;
+            let cloudinaryResourceType = null;
+            let inputData = "";
+
+            if (quickType === 'url') {
+                inputData = safeEl('quick-url')?.value.trim();
+                if(!inputData) return showToast("กรุณาใส่ลิงก์", "error");
+                if (!/^https?:\/\//i.test(inputData)) inputData = 'http://' + inputData;
+                finalDestination = inputData;
+            } else if (quickType === 'text') {
+                inputData = safeEl('quick-text')?.value.trim();
+                if(!inputData) return showToast("กรุณาใส่ข้อความ", "error");
+                finalDestination = inputData;
+            } else if (quickType === 'file') {
+                if(!quickFileObj) return showToast("กรุณาเลือกไฟล์เพื่ออัปโหลด", "error");
+                inputData = quickFileObj.name;
+                
+                if(CLOUDINARY_CLOUD_NAME === 'ใส่_CLOUD_NAME_ของคุณที่นี่') {
+                    return showToast("กรุณาตรวจสอบ Cloud Name ในโค้ด", "error");
+                }
+            }
+
+            let name = safeEl('quick-name')?.value.trim() || '';
+            if(!name) {
+                if(quickType === 'url') {
+                    try { name = new URL(finalDestination).hostname; } catch(e) { name = finalDestination.substring(0,20); }
+                } else {
+                    name = inputData.substring(0, 20);
+                }
+            }
+
+            btn.disabled = true; 
+            if(spin) spin.classList.remove('hidden');
+
+            try {
+                if (quickType === 'file') {
+                    const bar = safeEl('quick-progress-bar');
+                    const txt = safeEl('quick-progress-text');
+                    if(progressWrap) progressWrap.classList.remove('hidden');
+                    if(statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-primary mr-2"></i>กำลังอัปโหลดไฟล์ (Cloudinary)...';
+                    if(bar) bar.style.width = '0%';
+                    if(txt) txt.innerText = '0%';
+                    if(sizeText) sizeText.innerText = '0.00 MB / 0.00 MB';
+
+                    const uploadResult = await new Promise(async (resolve, reject) => {
+                        try {
+                            const timestamp = Math.round((new Date).getTime()/1000);
+                            const folderName = currentUser.email || 'anonymous_folder';
+                            
+                            const signatureStr = `folder=${folderName}&timestamp=${timestamp}${_getCSec()}`;
+                            const encoder = new TextEncoder();
+                            const data = encoder.encode(signatureStr);
+                            const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+                            const hashArray = Array.from(new Uint8Array(hashBuffer));
+                            const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+                            const formData = new FormData();
+                            formData.append('file', quickFileObj);
+                            formData.append('api_key', CLOUDINARY_API_KEY);
+                            formData.append('timestamp', timestamp);
+                            formData.append('folder', folderName);
+                            formData.append('signature', signature);
+
+                            const xhr = new XMLHttpRequest();
+                            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, true);
+                            
+                            xhr.upload.onprogress = (e) => {
+                                if (e.lengthComputable) {
+                                    const p = (e.loaded / e.total) * 100;
+                                    if(bar) bar.style.width = `${p}%`; 
+                                    if(txt) txt.innerText = `${Math.round(p)}%`;
+                                    if(sizeText) {
+                                        const loadedMB = (e.loaded / (1024 * 1024)).toFixed(2);
+                                        const totalMB = (e.total / (1024 * 1024)).toFixed(2);
+                                        sizeText.innerText = `${loadedMB} MB / ${totalMB} MB`;
+                                    }
+                                }
+                            };
+                            
+                            xhr.onload = () => {
+                                if (xhr.status === 200) {
+                                    const response = JSON.parse(xhr.responseText);
+                                    resolve({ url: response.secure_url, public_id: response.public_id, resource_type: response.resource_type });
+                                } else {
+                                    reject(new Error('อัปโหลดล้มเหลว (' + xhr.status + ') ตรวจสอบ Cloud Name'));
+                                }
+                            };
+                            xhr.onerror = () => reject(new Error('เกิดข้อผิดพลาดในการเชื่อมต่ออินเทอร์เน็ต'));
+                            xhr.send(formData);
+                        } catch(e) { reject(e); }
+                    });
+                    
+                    finalDestination = uploadResult.url;
+                    cloudinaryPublicId = uploadResult.public_id;
+                    cloudinaryResourceType = uploadResult.resource_type;
+                }
+
+                const shortCode = (quickType !== 'text') ? generateShortCode(4) : null;
+                
+                await addDoc(collection(db, COLLECTION_NAME), {
+                    userId: currentUser.uid, userEmail: currentUser.email,
+                    type: quickType, name: name, destination: finalDestination,
+                    shortCode: shortCode, color: quickColor, bgColor: '#ffffff', margin: 2, ecc: 'M',
+                    status: 'active', scans: 0, 
+                    cloudinaryPublicId: cloudinaryPublicId || null,
+                    cloudinaryResourceType: cloudinaryResourceType || 'image',
+                    createdAt: Date.now()
+                });
+                
+                showToast("สร้าง Dynamic QR สำเร็จ!");
+                
+                // Reset form
+                if(safeEl('quick-url')) safeEl('quick-url').value = '';
+                if(safeEl('quick-text')) safeEl('quick-text').value = '';
+                if(safeEl('quick-name')) safeEl('quick-name').value = '';
+                quickFileObj = null;
+                if(safeEl('quick-file-name')) {
+                    safeEl('quick-file-name').innerText = 'คลิกเพื่อเลือกไฟล์ (PDF, รูปภาพ ฯลฯ)';
+                    safeEl('quick-file-name').classList.remove('text-primary');
+                }
+                safeEl('quick-advanced')?.classList.add('hidden');
+                if(progressWrap) progressWrap.classList.add('hidden');
+                
+            } catch (error) {
+                console.error("Upload Error:", error);
+                if(statusText) statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500 mr-2"></i>อัปโหลดไม่สำเร็จ: ${error.message}`;
+                showToast("อัปโหลดไม่สำเร็จ โปรดดูข้อความด้านล่าง", "error");
+            } finally {
+                btn.disabled = false; 
+                if(spin) spin.classList.add('hidden');
+            }
+        };
+
+        window.toggleQRStatus = async (id, currentStatus) => {
+            const newStatus = currentStatus === 'active' ? 'paused' : 'active';
+            try {
+                await updateDoc(doc(db, COLLECTION_NAME, id), { status: newStatus });
+                showToast(`เปลี่ยนสถานะเรียบร้อย`);
+            } catch(e) { showToast("อัปเดตสถานะล้มเหลว", "error"); }
+        };
+
+        window.openEditModal = (id, currentUrl, name) => {
+            if(safeEl('edit-qr-id')) safeEl('edit-qr-id').value = id;
+            if(safeEl('edit-qr-url')) safeEl('edit-qr-url').value = currentUrl;
+            if(safeEl('edit-qr-name')) safeEl('edit-qr-name').value = name;
+            safeEl('edit-modal')?.classList.remove('hidden');
+        };
+
+        window.closeEditModal = () => safeEl('edit-modal')?.classList.add('hidden');
+
+        const formEditQrEl = safeEl('form-edit-qr');
+        if(formEditQrEl) {
+            formEditQrEl.addEventListener('submit', async (e) => {
+                e.preventDefault();
+                const id = safeEl('edit-qr-id')?.value;
+                let newUrl = safeEl('edit-qr-url')?.value.trim() || '';
+                if (!/^https?:\/\//i.test(newUrl)) newUrl = 'http://' + newUrl;
+
+                const btn = safeEl('btn-save-edit');
+                if(btn) {
+                    btn.disabled = true; 
+                    btn.querySelector('.fa-circle-notch')?.classList.remove('hidden');
+                }
+                try {
+                    await updateDoc(doc(db, COLLECTION_NAME, id), { destination: newUrl, name: safeEl('edit-qr-name')?.value.trim() || '' });
+                    showToast("บันทึกการแก้ไขสำเร็จ");
+                    closeEditModal();
+                } catch (error) { showToast("เกิดข้อผิดพลาด", "error"); } 
+                finally { 
+                    if(btn) {
+                        btn.disabled = false; 
+                        btn.querySelector('.fa-circle-notch')?.classList.add('hidden'); 
+                    }
+                }
+            });
+        }
+
+        async function deleteCloudinaryFile(publicId, resourceType = 'image') {
+            const timestamp = Math.round((new Date).getTime()/1000);
+            const signatureStr = `public_id=${publicId}&timestamp=${timestamp}${_getCSec()}`;
+            const encoder = new TextEncoder();
+            const data = encoder.encode(signatureStr);
+            const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            const formData = new FormData();
+            formData.append('public_id', publicId);
+            formData.append('api_key', CLOUDINARY_API_KEY);
+            formData.append('timestamp', timestamp);
+            formData.append('signature', signature);
+
+            return new Promise((resolve, reject) => {
+                const xhr = new XMLHttpRequest();
+                xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/${resourceType}/destroy`, true);
+                xhr.onload = () => {
+                    if (xhr.status === 200) resolve();
+                    else reject(new Error(xhr.statusText));
+                };
+                xhr.onerror = () => reject(new Error('Network error'));
+                xhr.send(formData);
+            });
+        }
+
+        window.deleteQR = async (id, publicId, resourceType) => {
+            if(!confirm("ลบ QR Code นี้อย่างถาวร? ลิงก์และไฟล์บนเซิร์ฟเวอร์จะถูกลบทิ้ง")) return;
+            try {
+                if (publicId && CLOUDINARY_CLOUD_NAME !== 'ใส่_CLOUD_NAME_ของคุณที่นี่') {
+                    await deleteCloudinaryFile(publicId, resourceType).catch(e => console.log("Cloudinary del skip:", e));
+                }
+                await deleteDoc(doc(db, COLLECTION_NAME, id));
+                showToast("ลบข้อมูลและไฟล์สำเร็จ");
+            } catch (error) { showToast("ลบล้มเหลว", "error"); }
+        };
+
+        window.copyText = (text) => {
+            const textArea = document.createElement("textarea"); textArea.value = text;
+            document.body.appendChild(textArea); textArea.select();
+            try { document.execCommand('copy'); showToast("คัดลอกลิงก์แล้ว"); } catch (e) { }
+            document.body.removeChild(textArea);
+        };
+
+        window.openScanDetails = (id) => {
+            const item = allItems.find(i => i.id === id);
+            if(!item) return;
+            if(safeEl('scan-details-title')) safeEl('scan-details-title').innerText = `${item.name}`;
+            safeEl('scan-details-modal')?.classList.remove('hidden');
+            safeEl('scan-details-loading')?.classList.remove('hidden');
+            if(safeEl('scan-details-body')) safeEl('scan-details-body').innerHTML = '';
+
+            if (scanDetailsUnsubscribe) scanDetailsUnsubscribe();
+            scanDetailsUnsubscribe = onSnapshot(query(collection(db, 'hovercode_analytics'), where("qrId", "==", id)), (snapshot) => {
+                let logs = snapshot.docs.map(d => d.data()).sort((a,b) => b.timestamp - a.timestamp);
+                safeEl('scan-details-loading')?.classList.add('hidden');
+                if(logs.length === 0) {
+                     if(safeEl('scan-details-body')) safeEl('scan-details-body').innerHTML = `<tr><td colspan="3" class="p-6 text-center text-gray-400 font-medium">ยังไม่มีประวัติการสแกน</td></tr>`;
+                } else {
+                     if(safeEl('scan-details-body')) safeEl('scan-details-body').innerHTML = logs.map(l => `
+                        <tr class="hover:bg-gray-50 border-b border-gray-100 last:border-0 fade-in">
+                            <td class="p-4 text-sm text-gray-600">${new Date(l.timestamp).toLocaleString('th-TH')}</td>
+                            <td class="p-4 text-sm text-gray-800 font-bold">${getOSIconHTML(l.os)} ${l.os}</td>
+                            <td class="p-4 text-sm text-gray-800 font-medium">${getBrowserIconHTML(l.browser)} ${l.browser}</td>
+                        </tr>
+                     `).join('');
+                }
+            }, e => safeEl('scan-details-loading')?.classList.add('hidden'));
+        };
+        
+        window.closeScanDetails = () => {
+            if (scanDetailsUnsubscribe) { scanDetailsUnsubscribe(); scanDetailsUnsubscribe = null; }
+            safeEl('scan-details-modal')?.classList.add('hidden');
+        };
+
+        function getOSIconHTML(os) {
+            if(os.includes('Win')) return '<i class="fa-brands fa-windows text-sky-500 w-5 text-center text-lg"></i>';
+            if(os.includes('Mac') || os.includes('iOS')) return '<i class="fa-brands fa-apple text-gray-800 w-5 text-center text-lg"></i>';
+            if(os.includes('Android')) return '<i class="fa-brands fa-android text-emerald-500 w-5 text-center text-lg"></i>';
+            return '<i class="fa-solid fa-laptop text-gray-400 w-5 text-center text-lg"></i>';
+        }
+        function getBrowserIconHTML(browser) {
+            if(browser.includes('Chrome')) return '<i class="fa-brands fa-chrome text-rose-500 w-5 text-center text-lg"></i>';
+            if(browser.includes('Safari')) return '<i class="fa-brands fa-safari text-sky-400 w-5 text-center text-lg"></i>';
+            return '<i class="fa-solid fa-globe text-gray-400 w-5 text-center text-lg"></i>';
+        }
+
+        // --- FIXED QR DOWNLOADS ---
+        window.openDownloadModal = (id) => {
+            currentDownloadItem = allItems.find(i => i.id === id);
+            if(currentDownloadItem) {
+                if(safeEl('dl-qr-name')) safeEl('dl-qr-name').innerText = `"${currentDownloadItem.name}"`;
+                safeEl('download-modal')?.classList.remove('hidden');
+            }
+        };
+        window.closeDownloadModal = () => safeEl('download-modal')?.classList.add('hidden');
+
+        window.processDownload = async (format) => {
+            if(!currentDownloadItem) return;
+            const item = currentDownloadItem;
+            const isStatic = item.type === 'text';
+            const renderData = isStatic ? item.destination : `${window.location.origin}${window.location.pathname}?s=${item.shortCode}`;
+            const fColor = (item.color || '#0f172a').replace('#', '');
+            const filename = `QR_${(item.name || 'nexus').replace(/[^a-zA-Z0-9ก-๙]/g, '_')}`;
+
+            showToast(`กำลังเตรียมไฟล์ ${format.toUpperCase()}...`, "info");
+            
+            const triggerDownload = (blob, ext) => {
+                const url = URL.createObjectURL(blob);
+                const link = document.createElement('a');
+                link.href = url;
+                link.download = `${filename}.${ext}`;
+                document.body.appendChild(link);
+                link.click();
+                document.body.removeChild(link);
+                setTimeout(() => URL.revokeObjectURL(url), 1000);
+            };
+
+            try {
+                if (format === 'pdf') {
+                    const imgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=800x800&data=${encodeURIComponent(renderData)}&color=${fColor}&bgcolor=ffffff&margin=2&format=png`;
+                    
+                    try {
+                        const response = await fetch(imgUrl);
+                        if (!response.ok) throw new Error("CORS or Network error");
+                        const blob = await response.blob();
+                        const reader = new FileReader();
+                        reader.readAsDataURL(blob);
+                        reader.onloadend = () => {
+                            try {
+                                if (!window.jspdf || !window.jspdf.jsPDF) throw new Error("PDF Library ไม่พร้อมใช้งาน");
+                                const doc = new window.jspdf.jsPDF();
+                                doc.setFontSize(20); doc.text(item.name || 'QR Code', 105, 30, null, null, "center");
+                                doc.addImage(reader.result, 'PNG', 35, 50, 140, 140);
+                                doc.setFontSize(10); doc.setTextColor(100); doc.text(`Link: ${renderData}`, 105, 200, null, null, "center");
+                                doc.save(`${filename}.pdf`); 
+                                showToast("ดาวน์โหลด PDF สำเร็จ!", "success");
+                            } catch(e) { 
+                                showToast("เกิดข้อผิดพลาดในการสร้าง PDF", "error"); 
+                            } finally {
+                                closeDownloadModal();
+                            }
+                        };
+                    } catch(e) {
+                        showToast("เบราว์เซอร์บล็อกการดาวน์โหลด PDF โปรดบันทึกจากหน้าเว็บแทน", "error");
+                        closeDownloadModal();
+                    }
+
+                } else {
+                    const ext = format === 'jpeg' ? 'jpeg' : format === 'svg' ? 'svg' : 'png';
+                    const imgUrl = `https://api.qrserver.com/v1/create-qr-code/?size=1000x1000&data=${encodeURIComponent(renderData)}&color=${fColor}&bgcolor=ffffff&margin=2&format=${ext}`;
+                    
+                    try {
+                        const response = await fetch(imgUrl);
+                        if (!response.ok) throw new Error("CORS or Network error");
+                        const blob = await response.blob();
+                        triggerDownload(blob, format === 'jpeg' ? 'jpg' : format);
+                        showToast("ดาวน์โหลดสำเร็จ!", "success");
+                        closeDownloadModal();
+                    } catch(e) {
+                        // Fallback to opening in new tab
+                        const link = document.createElement('a');
+                        link.href = imgUrl; 
+                        link.target = '_blank';
+                        link.download = `${filename}.${format === 'jpeg' ? 'jpg' : format}`;
+                        document.body.appendChild(link); 
+                        link.click(); 
+                        document.body.removeChild(link);
+                        showToast("เปิดลิงก์รูปภาพสำเร็จ (กดเซฟรูปได้เลย)", "success");
+                        closeDownloadModal();
+                    }
+                }
+            } catch(error) {
+                closeDownloadModal();
+                showToast("เกิดข้อผิดพลาด: " + error.message, "error");
+            }
+        };
+
+        // --- Analytics & Admin renders ---
+        function renderAnalytics() {
+            if(safeEl('stat-total-qr')) safeEl('stat-total-qr').innerText = allItems.length;
+            if(safeEl('stat-total-scans')) safeEl('stat-total-scans').innerText = allItems.reduce((sum, item) => sum + (item.scans || 0), 0);
+            const sortedByScans = [...allItems].sort((a, b) => (b.scans || 0) - (a.scans || 0));
+            if(safeEl('stat-top-qr')) safeEl('stat-top-qr').innerText = sortedByScans[0]?.name || '-';
+            
+            const tbody = safeEl('analytics-table');
+            if(tbody) {
+                tbody.innerHTML = sortedByScans.map(item => `
+                    <tr class="hover:bg-gray-50 transition border-b border-gray-50">
+                        <td class="p-5 font-bold text-gray-800 truncate max-w-[200px]">${item.name}</td>
+                        <td class="p-5 text-center"><span class="text-[10px] bg-indigo-50 text-primary px-2 py-1 rounded font-black uppercase tracking-widest">${item.type}</span></td>
+                        <td class="p-5 text-right font-black text-gray-900 text-lg">${item.scans || 0}</td>
+                        <td class="p-5 text-center text-gray-500 text-xs font-medium">${new Date(item.createdAt).toLocaleDateString('th-TH')}</td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        function renderAdminTable() {
+            const tbody = safeEl('admin-table-body');
+            if(tbody) {
+                tbody.innerHTML = allItems.map(item => `
+                    <tr class="hover:bg-gray-50 border-b border-gray-50">
+                        <td class="p-5 text-center"><span class="text-[10px] bg-gray-100 text-gray-600 px-2 py-1 rounded font-black uppercase tracking-widest">${item.type}</span></td>
+                        <td class="p-5">
+                            <p class="font-bold text-gray-800 truncate max-w-[250px]">${item.name}</p>
+                            <a href="${item.destination}" target="_blank" class="text-xs text-primary hover:underline font-mono mt-1 inline-block truncate max-w-[250px]" title="${item.destination}"><i class="fa-solid fa-link"></i> ${item.destination}</a>
+                        </td>
+                        <td class="p-5 text-sm font-medium text-primary">${item.userEmail}</td>
+                        <td class="p-5 font-black text-gray-900">${item.scans || 0}</td>
+                        <td class="p-5 text-center">
+                            <button onclick="deleteQR('${item.id}', '${item.cloudinaryPublicId || ''}', '${item.cloudinaryResourceType || 'image'}')" class="text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition"><i class="fa-solid fa-trash-can"></i></button>
+                        </td>
+                    </tr>
+                `).join('');
+            }
+        }
+
+        // --- Auth ---
+        window.toggleLoginModal = (show) => {
+            const modal = safeEl('login-modal');
+            const content = safeEl('login-modal-content');
+            if(!modal || !content) return;
+            
+            if(show) {
+                modal.classList.remove('hidden');
+                setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); }, 10);
+            } else {
+                modal.classList.add('opacity-0'); content.classList.add('scale-95');
+                setTimeout(() => modal.classList.add('hidden'), 300);
+            }
+        };
+
+        const btnGoogleLoginEl = safeEl('btn-google-login');
+        if(btnGoogleLoginEl) {
+            btnGoogleLoginEl.addEventListener('click', async () => {
+                const spinner = safeEl('login-spinner');
+                if(spinner) spinner.classList.remove('hidden');
+                try { await signInWithPopup(auth, googleProvider); } 
+                catch (error) { showToast("เข้าสู่ระบบล้มเหลว (โดเมนนี้อาจต้องตั้งค่าใน Firebase)", "error"); }
+                finally { if(spinner) spinner.classList.add('hidden'); }
+            });
+        }
+
+        const btnLogoutEl = safeEl('btn-logout');
+        if(btnLogoutEl) {
+            btnLogoutEl.addEventListener('click', () => signOut(auth));
+        }
+        
+        let toastTimeout;
+        window.showToast = (msg, type = 'success') => {
+            const t = safeEl('toast');
+            if(!t) return;
+            if(safeEl('toast-message')) safeEl('toast-message').innerText = msg;
+            
+            t.classList.remove('bg-dark', 'bg-red-600', 'bg-blue-600');
+            t.classList.remove('border-gray-700', 'border-red-700', 'border-blue-700');
+            
+            if (type === 'error') {
+                t.classList.add('bg-red-600', 'border-red-700');
+                if(safeEl('toast-icon')) safeEl('toast-icon').className = 'fa-solid fa-circle-exclamation text-white text-xl';
+            } else if (type === 'info') {
+                t.classList.add('bg-blue-600', 'border-blue-700');
+                if(safeEl('toast-icon')) safeEl('toast-icon').className = 'fa-solid fa-circle-info text-white text-xl';
+            } else {
+                t.classList.add('bg-dark', 'border-gray-700');
+                if(safeEl('toast-icon')) safeEl('toast-icon').className = 'fa-solid fa-circle-check text-green-400 text-xl';
+            }
+            
+            t.classList.remove('translate-x-[120%]');
+            clearTimeout(toastTimeout);
+            toastTimeout = setTimeout(() => t.classList.add('translate-x-[120%]'), 3500);
+        };
+
+        const btnMobileMenuEl = safeEl('btn-mobile-menu');
+        if(btnMobileMenuEl) {
+            btnMobileMenuEl.addEventListener('click', () => {
+                const profileBtn = document.querySelector('.group button');
+                if(profileBtn) profileBtn.focus();
+            });
+        }
+
+        init();
+
+    </script>
+</body>
+</html>
