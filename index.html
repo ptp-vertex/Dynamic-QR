@@ -605,6 +605,24 @@
         </div>
     </div>
 
+    <!-- Bulk ZIP Progress Modal -->
+    <div id="bulk-download-progress" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[85] flex items-center justify-center p-4">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full shadow-2xl fade-in text-center">
+            <div class="w-16 h-16 rounded-2xl bg-indigo-50 text-primary flex items-center justify-center text-3xl mx-auto mb-4">
+                <i class="fa-solid fa-file-zipper"></i>
+            </div>
+            <h2 class="text-xl font-extrabold text-gray-900 mb-2">กำลังสร้างไฟล์ ZIP</h2>
+            <p id="bulk-download-status" class="text-sm text-gray-500 mb-5">กำลังเตรียมไฟล์...</p>
+            <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden shadow-inner">
+                <div id="bulk-download-bar" class="bg-gradient-to-r from-primary to-secondary h-3 rounded-full transition-all duration-200" style="width: 0%"></div>
+            </div>
+            <div class="flex justify-between items-center mt-2 text-xs font-bold">
+                <span class="text-gray-400">ความคืบหน้า</span>
+                <span id="bulk-download-percent" class="text-primary text-lg">0%</span>
+            </div>
+        </div>
+    </div>
+
     <!-- Scan Details Modal -->
     <div id="scan-details-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[75] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl w-full max-w-2xl relative shadow-2xl fade-in flex flex-col max-h-[80vh] overflow-hidden">
@@ -1593,7 +1611,17 @@
 
             const groupName = members[0].groupName || 'nexus-project';
             const zip = new JSZip();
-            showToast(`กำลังเตรียม ZIP ${members.length} ไฟล์...`, "info");
+            const progressModal = safeEl('bulk-download-progress');
+            const progressBar = safeEl('bulk-download-bar');
+            const progressPercent = safeEl('bulk-download-percent');
+            const progressStatus = safeEl('bulk-download-status');
+            const setProgress = (percent, status) => {
+                if (progressBar) progressBar.style.width = `${percent}%`;
+                if (progressPercent) progressPercent.innerText = `${Math.round(percent)}%`;
+                if (progressStatus) progressStatus.innerText = status;
+            };
+            progressModal?.classList.remove('hidden');
+            setProgress(0, `กำลังเตรียม QR ${members.length} รายการ...`);
             try {
                 for (let index = 0; index < members.length; index++) {
                     const item = members[index];
@@ -1604,8 +1632,12 @@
                     if (!response.ok) throw new Error(`ดาวน์โหลด QR รายการที่ ${index + 1} ไม่สำเร็จ`);
                     const filename = `${String(index + 1).padStart(2, '0')}_${(item.name || 'qr').replace(/[^a-zA-Z0-9ก-๙]/g, '_')}.png`;
                     zip.file(filename, await response.blob());
+                    setProgress(((index + 1) / members.length) * 90, `ดาวน์โหลด QR แล้ว ${index + 1}/${members.length} รายการ`);
                 }
-                const blob = await zip.generateAsync({ type: 'blob' });
+                setProgress(92, 'กำลังบีบอัดไฟล์ ZIP...');
+                const blob = await zip.generateAsync({ type: 'blob' }, metadata => {
+                    setProgress(92 + (metadata.percent * 0.08), `กำลังบีบอัดไฟล์ ZIP... ${Math.round(metadata.percent)}%`);
+                });
                 const url = URL.createObjectURL(blob);
                 const link = document.createElement('a');
                 link.href = url;
@@ -1614,9 +1646,12 @@
                 link.click();
                 document.body.removeChild(link);
                 setTimeout(() => URL.revokeObjectURL(url), 1000);
+                setProgress(100, 'ดาวน์โหลด ZIP สำเร็จ');
+                setTimeout(() => progressModal?.classList.add('hidden'), 700);
                 showToast("ดาวน์โหลด ZIP สำเร็จ!", "success");
             } catch (error) {
                 console.error("Bulk ZIP Error:", error);
+                progressModal?.classList.add('hidden');
                 showToast("ดาวน์โหลด ZIP ไม่สำเร็จ: " + error.message, "error");
             }
         };
