@@ -588,14 +588,17 @@
                         <label class="block text-xs font-bold text-gray-500 mb-1">ชื่อกลุ่มโปรเจกต์</label>
                         <input id="bulk-group-name" class="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:border-primary font-medium">
                     </div>
-                    <div class="flex-1">
-                        <label class="block text-xs font-bold text-gray-500 mb-1">เหตุผลการระงับ <span class="font-normal">(ไม่ใส่ก็ได้)</span></label>
-                        <input id="bulk-pause-reason" placeholder="เช่น ลิงก์หมดอายุ / รอตรวจสอบ" class="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:border-primary font-medium">
+                    <button onclick="document.getElementById('bulk-status-actions')?.classList.toggle('hidden')" class="px-4 py-2.5 rounded-xl bg-gray-100 text-gray-700 hover:bg-gray-200 text-sm font-bold transition"><i class="fa-solid fa-sliders mr-1"></i>จัดการสถานะ</button>
+                    <div id="bulk-status-actions" class="hidden w-full flex flex-wrap gap-2 items-end">
+                        <div class="flex-1 min-w-[220px]">
+                            <label class="block text-xs font-bold text-gray-500 mb-1">เหตุผลการระงับ <span class="font-normal">(ไม่ใส่ก็ได้)</span></label>
+                            <input id="bulk-pause-reason" placeholder="เช่น ลิงก์หมดอายุ / รอตรวจสอบ" class="w-full px-3 py-2.5 bg-white border border-gray-200 rounded-xl outline-none focus:border-primary font-medium">
+                        </div>
+                        <button onclick="window.setSelectedGroupStatus('paused')" class="px-4 py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-sm font-bold transition"><i class="fa-solid fa-pause mr-1"></i>ระงับที่เลือก</button>
+                        <button onclick="window.setSelectedGroupStatus('active')" class="px-4 py-2.5 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 text-sm font-bold transition"><i class="fa-solid fa-play mr-1"></i>เปิดใช้งานที่เลือก</button>
+                        <button onclick="window.setWholeGroupStatus('paused')" class="px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-bold transition"><i class="fa-solid fa-ban mr-1"></i>ระงับทั้งกลุ่ม</button>
+                        <button onclick="window.setWholeGroupStatus('active')" class="px-4 py-2.5 rounded-xl bg-green-600 text-white hover:bg-green-700 text-sm font-bold transition"><i class="fa-solid fa-circle-check mr-1"></i>เปิดทั้งกลุ่ม</button>
                     </div>
-                    <button onclick="window.setSelectedGroupStatus('paused')" class="px-4 py-2.5 rounded-xl bg-red-50 text-red-600 hover:bg-red-100 text-sm font-bold transition"><i class="fa-solid fa-pause mr-1"></i>ระงับที่เลือก</button>
-                    <button onclick="window.setSelectedGroupStatus('active')" class="px-4 py-2.5 rounded-xl bg-green-50 text-green-600 hover:bg-green-100 text-sm font-bold transition"><i class="fa-solid fa-play mr-1"></i>เปิดใช้งานที่เลือก</button>
-                    <button onclick="window.setWholeGroupStatus('paused')" class="px-4 py-2.5 rounded-xl bg-red-600 text-white hover:bg-red-700 text-sm font-bold transition"><i class="fa-solid fa-ban mr-1"></i>ระงับทั้งกลุ่ม</button>
-                    <button onclick="window.setWholeGroupStatus('active')" class="px-4 py-2.5 rounded-xl bg-green-600 text-white hover:bg-green-700 text-sm font-bold transition"><i class="fa-solid fa-circle-check mr-1"></i>เปิดทั้งกลุ่ม</button>
                 </div>
             </div>
             <div class="overflow-auto flex-1">
@@ -774,7 +777,12 @@
                         const data = targetDoc.data();
 
                         if (data.status === 'paused') {
-                            if(safeEl('sys-loading-text')) safeEl('sys-loading-text').innerText = 'ลิงก์นี้ถูกระงับการใช้งานโดยเจ้าของ';
+                            const pauseReasonText = data.pauseReason ? `\nเหตุผล: ${data.pauseReason}` : '';
+                            if(safeEl('sys-loading-text')) {
+                                safeEl('sys-loading-text').innerText = `ลิงก์นี้ถูกระงับการใช้งานโดยเจ้าของ${pauseReasonText}`;
+                                safeEl('sys-loading-text').style.whiteSpace = 'pre-line';
+                                safeEl('sys-loading-text').classList.add('text-center', 'px-6');
+                            }
                             if(safeEl('sys-loading-text')) safeEl('sys-loading-text').classList.replace('text-gray-700', 'text-red-500');
                             document.querySelector('.animate-spin')?.classList.add('hidden');
                             document.querySelector('.animate-pulse')?.classList.replace('text-primary', 'text-red-500');
@@ -1229,7 +1237,7 @@
                     <td class="p-3"><input class="bulk-row-name w-full min-w-[180px] px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-primary" value="${String(item.name || '').replace(/"/g, '&quot;')}" data-id="${item.id}"></td>
                     <td class="p-3"><input type="url" class="bulk-row-url w-full min-w-[300px] px-3 py-2 bg-gray-50 border border-gray-200 rounded-lg outline-none focus:border-primary" value="${String(item.destination || '').replace(/"/g, '&quot;')}" data-id="${item.id}"></td>
                     <td class="p-3 text-center">
-                        <select class="bulk-row-status px-2 py-2 rounded-lg border border-gray-200 text-xs font-bold outline-none ${item.status === 'paused' ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50'}" data-id="${item.id}">
+                        <select onchange="window.updateBulkStatusColor(this)" class="bulk-row-status px-2 py-2 rounded-lg border border-gray-200 text-xs font-bold outline-none ${item.status === 'paused' ? 'text-red-600 bg-red-50' : 'text-green-600 bg-green-50'}" data-id="${item.id}">
                             <option value="active" ${item.status !== 'paused' ? 'selected' : ''}>ใช้งาน</option>
                             <option value="paused" ${item.status === 'paused' ? 'selected' : ''}>ระงับชั่วคราว</option>
                         </select>
@@ -1245,6 +1253,12 @@
             document.querySelectorAll('.bulk-row-check').forEach(check => check.checked = checked);
         };
 
+        window.updateBulkStatusColor = (select) => {
+            select.classList.remove('text-red-600', 'bg-red-50', 'text-green-600', 'bg-green-50');
+            select.classList.add(select.value === 'paused' ? 'text-red-600' : 'text-green-600');
+            select.classList.add(select.value === 'paused' ? 'bg-red-50' : 'bg-green-50');
+        };
+
         window.setSelectedGroupStatus = async (status) => {
             const selected = [...document.querySelectorAll('.bulk-row-check:checked')].map(el => el.dataset.id);
             if (!selected.length) return showToast("กรุณาเลือกรายการก่อน", "error");
@@ -1252,7 +1266,10 @@
             try {
                 await Promise.all(selected.map(id => updateDoc(doc(db, COLLECTION_NAME, id), { status, pauseReason })));
                 document.querySelectorAll('.bulk-row-status').forEach(select => {
-                    if (selected.includes(select.dataset.id)) select.value = status;
+                    if (selected.includes(select.dataset.id)) {
+                        select.value = status;
+                        updateBulkStatusColor(select);
+                    }
                 });
                 showToast(status === 'paused' ? `ระงับ ${selected.length} รายการแล้ว` : `เปิดใช้งาน ${selected.length} รายการแล้ว`);
             } catch (error) {
@@ -1266,7 +1283,10 @@
             const pauseReason = status === 'paused' ? (safeEl('bulk-pause-reason')?.value.trim() || "") : "";
             try {
                 await Promise.all(members.map(item => updateDoc(doc(db, COLLECTION_NAME, item.id), { status, pauseReason })));
-                document.querySelectorAll('.bulk-row-status').forEach(select => select.value = status);
+                document.querySelectorAll('.bulk-row-status').forEach(select => {
+                    select.value = status;
+                    updateBulkStatusColor(select);
+                });
                 showToast(status === 'paused' ? "ระงับทั้งกลุ่มแล้ว" : "เปิดใช้งานทั้งกลุ่มแล้ว", "success");
             } catch (error) {
                 showToast("เปลี่ยนสถานะทั้งกลุ่มไม่สำเร็จ", "error");
