@@ -534,9 +534,13 @@
                                         <span class="text-sm font-bold text-gray-800">อนุญาตให้ผู้ใช้ใหม่สมัครสมาชิก</span>
                                     </label>
                                 </div>
-                                <div class="pt-4 border-t border-red-100">
+                                <div class="pt-4 border-t border-red-100 flex flex-col sm:flex-row gap-3">
                                     <button onclick="saveSystemSettings()" class="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition w-full md:w-auto shadow-sm hover:shadow-md">อัปเดตระบบส่วนกลาง</button>
+                                    <button onclick="clearAllScanStatistics()" class="bg-white text-red-600 border border-red-200 px-8 py-3 rounded-xl font-bold hover:bg-red-50 transition w-full md:w-auto shadow-sm">
+                                        <i class="fa-solid fa-rotate-left mr-2"></i>เคลียร์สถิติการสแกนทั้งหมด
+                                    </button>
                                 </div>
+                                <p class="text-xs text-red-600 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>การดำเนินการนี้จะรีเซ็ตยอดสแกนและลบประวัติการสแกนทั้งหมด แต่จะไม่ลบ QR Code</p>
                             </div>
                         </div>
 
@@ -707,7 +711,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where, updateDoc, increment, onSnapshot, getDoc, setDoc } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where, updateDoc, increment, onSnapshot, getDoc, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // --- Firebase Config ---
         const firebaseConfig = {
@@ -1072,6 +1076,43 @@
                 showToast("อัปเดตระบบส่วนกลางเรียบร้อย");
             } catch(e) {
                 showToast("อัปเดตล้มเหลว ตรวจสอบสิทธิ์", "error");
+            }
+        };
+
+        // Reset all aggregate counters and detailed scan logs without deleting QR records.
+        window.clearAllScanStatistics = async () => {
+            if(!isAdmin) return showToast("คุณไม่มีสิทธิ์ดำเนินการนี้", "error");
+            const confirmed = confirm("ยืนยันเคลียร์สถิติการสแกนทั้งหมด? ยอดสแกนและประวัติการสแกนจะถูกลบถาวร แต่ QR Code จะยังคงอยู่");
+            if(!confirmed) return;
+
+            try {
+                const assetsSnapshot = await getDocs(collection(db, COLLECTION_NAME));
+                const analyticsSnapshot = await getDocs(collection(db, "hovercode_analytics"));
+                const assetDocs = assetsSnapshot.docs;
+                const analyticsDocs = analyticsSnapshot.docs;
+
+                // Firestore batches allow at most 500 writes per commit.
+                for(let i = 0; i < assetDocs.length; i += 500) {
+                    const batch = writeBatch(db);
+                    assetDocs.slice(i, i + 500).forEach(itemDoc => {
+                        batch.update(itemDoc.ref, { scans: 0 });
+                    });
+                    await batch.commit();
+                }
+                for(let i = 0; i < analyticsDocs.length; i += 500) {
+                    const batch = writeBatch(db);
+                    analyticsDocs.slice(i, i + 500).forEach(logDoc => {
+                        batch.delete(logDoc.ref);
+                    });
+                    await batch.commit();
+                }
+
+                allItems = allItems.map(item => ({ ...item, scans: 0 }));
+                renderAnalytics();
+                showToast(`เคลียร์สถิติเรียบร้อย (${assetDocs.length} QR, ${analyticsDocs.length} ประวัติ)`);
+            } catch(e) {
+                console.error(e);
+                showToast("เคลียร์สถิติไม่สำเร็จ ตรวจสอบสิทธิ์หรือการเชื่อมต่อ", "error");
             }
         };
 
