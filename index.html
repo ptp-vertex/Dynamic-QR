@@ -86,8 +86,8 @@
             <h2 class="text-center text-2xl font-extrabold text-gray-900 mb-2">NodexQR</h2>
             <p class="text-center text-sm text-gray-500 mb-8">เข้าสู่ระบบเพื่อจัดการ Dynamic QR ของคุณ</p>
             <button id="btn-google-login" class="w-full flex justify-center items-center gap-3 py-3.5 px-4 border-2 border-gray-200 rounded-xl hover:border-primary hover:bg-indigo-50 font-bold text-gray-700 transition focus:ring-4 focus:ring-primary/20">
-                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="Google">
-                <span>ล็อกอินด้วย Google</span>
+                <img src="https://www.svgrepo.com/show/475656/google-color.svg" class="w-5 h-5" alt="บัญชีผู้ใช้">
+                <span>เข้าสู่ระบบด้วยบัญชีของคุณ</span>
                 <i id="login-spinner" class="fa-solid fa-circle-notch fa-spin hidden ml-2 text-primary"></i>
             </button>
         </div>
@@ -129,9 +129,11 @@
     <!-- ================= LOGGED IN APP ================= -->
     <div id="page-app" class="hidden flex-1 flex flex-col w-full relative">
         
-        <!-- System Announcement Banner -->
-        <div id="sys-announcement" class="hidden bg-indigo-600 text-white text-xs md:text-sm py-2 text-center font-bold px-4 flex items-center justify-center gap-2">
-            <i class="fa-solid fa-bullhorn"></i> <span id="sys-announcement-text"></span>
+        <!-- System Announcement Popup -->
+        <div id="sys-announcement" class="hidden fixed top-5 left-1/2 -translate-x-1/2 max-w-xl w-[calc(100%-2rem)] bg-indigo-600 text-white text-sm text-center font-bold px-5 py-3.5 rounded-2xl shadow-2xl z-[95] flex items-center justify-center gap-3 fade-in" role="status" aria-live="polite">
+            <i class="fa-solid fa-bullhorn shrink-0"></i>
+            <span id="sys-announcement-text"></span>
+            <button type="button" onclick="document.getElementById('sys-announcement')?.classList.add('hidden')" class="ml-auto w-7 h-7 rounded-full hover:bg-white/20 transition shrink-0" aria-label="ปิดประกาศ"><i class="fa-solid fa-xmark"></i></button>
         </div>
 
         <!-- Top Header Navbar -->
@@ -257,8 +259,8 @@
                                         <input type="file" id="quick-file" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer">
                                         <div class="flex flex-col items-center justify-center gap-2 text-primary">
                                             <i class="fa-solid fa-cloud-arrow-up text-3xl mb-1"></i> 
-                                            <span id="quick-file-name" class="font-bold text-lg">คลิกเพื่อเลือกไฟล์ (PDF, รูปภาพ ฯลฯ)</span>
-                                            <span class="text-xs font-medium text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">ขนาดสูงสุด 100MB</span>
+                                            <span id="quick-file-name" class="font-bold text-lg">คลิกเพื่อเลือกไฟล์ (ระบบจะบีบอัดอัตโนมัติ)</span>
+                                            <span class="text-xs font-medium text-gray-500 bg-white px-3 py-1 rounded-full shadow-sm">ขนาดไฟล์สุดท้ายไม่เกิน 10MB</span>
                                         </div>
                                     </div>
                                 </div>
@@ -292,16 +294,27 @@
                             <button onclick="document.getElementById('quick-advanced').classList.toggle('hidden')" class="text-sm text-gray-500 hover:text-primary font-bold bg-gray-100 hover:bg-indigo-50 px-4 py-1.5 rounded-full transition"><i class="fa-solid fa-sliders mr-1"></i> ตั้งค่าเพิ่มเติม</button>
                         </div>
 
-                        <!-- Detailed Progress Bar -->
-                        <div id="quick-progress-wrap" class="w-full mt-6 hidden bg-gray-50 border border-gray-200 p-4 rounded-xl fade-in">
-                            <div class="flex justify-between items-end text-sm text-gray-700 font-bold mb-2">
-                                <span id="quick-progress-status-text" class="flex items-center"><i class="fa-solid fa-spinner fa-spin text-primary mr-2"></i>กำลังอัปโหลดไฟล์...</span>
-                                <span id="quick-progress-text" class="text-primary text-xl">0%</span>
+                        <!-- Upload Progress Popup -->
+                        <div id="quick-progress-wrap" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[85] flex items-center justify-center p-4" role="dialog" aria-modal="true" aria-labelledby="quick-progress-title">
+                            <div class="bg-white rounded-3xl p-8 max-w-lg w-full shadow-2xl fade-in">
+                                <div class="flex items-center gap-4 mb-5">
+                                    <div class="w-14 h-14 rounded-2xl bg-indigo-50 text-primary flex items-center justify-center text-2xl shrink-0">
+                                        <i class="fa-solid fa-cloud-arrow-up animate-pulse"></i>
+                                    </div>
+                                    <div>
+                                        <h2 id="quick-progress-title" class="text-xl font-extrabold text-gray-900">กำลังอัปโหลดไฟล์</h2>
+                                        <p id="quick-progress-status-text" class="text-sm text-gray-500 mt-1" aria-live="polite">กำลังเตรียมไฟล์...</p>
+                                    </div>
+                                </div>
+                                <div class="flex justify-between items-end text-sm text-gray-700 font-bold mb-2">
+                                    <span>ความคืบหน้า</span>
+                                    <span id="quick-progress-text" class="text-primary text-xl">0%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-3 overflow-hidden mb-2 shadow-inner">
+                                    <div id="quick-progress-bar" class="bg-gradient-to-r from-primary to-secondary h-3 rounded-full transition-all duration-300" style="width: 0%"></div>
+                                </div>
+                                <div id="quick-progress-size" class="text-xs text-gray-500 font-mono text-right font-medium">0.00 MB / 0.00 MB</div>
                             </div>
-                            <div class="w-full bg-gray-200 rounded-full h-2.5 overflow-hidden mb-2 shadow-inner">
-                                <div id="quick-progress-bar" class="bg-gradient-to-r from-primary to-secondary h-2.5 rounded-full transition-all duration-300" style="width: 0%"></div>
-                            </div>
-                            <div id="quick-progress-size" class="text-xs text-gray-500 font-mono text-right font-medium">0.00 MB / 0.00 MB</div>
                         </div>
                     </div>
                 </div>
@@ -322,10 +335,9 @@
                     </div>
                 </div>
 
-                <div id="loading-list" class="flex justify-center py-16 hidden">
-                    <div class="flex flex-col items-center gap-3">
+                <div id="loading-list" class="flex justify-center py-16 hidden" role="status" aria-label="กำลังโหลดข้อมูล">
+                    <div class="flex flex-col items-center gap-3" aria-hidden="true">
                         <i class="fa-solid fa-circle-notch fa-spin text-4xl text-primary"></i>
-                        <p class="text-gray-500 font-medium">กำลังดึงข้อมูล...</p>
                     </div>
                 </div>
 
@@ -449,7 +461,7 @@
                                     <h4 class="font-bold text-gray-800 text-lg">แพ็กเกจปัจจุบัน: <span class="text-primary">Free Plan</span></h4>
                                     <span class="bg-gray-200 text-gray-700 text-xs px-3 py-1 rounded-full font-bold">Active</span>
                                 </div>
-                                <p class="text-gray-600 text-sm mb-6">คุณสามารถสร้าง Dynamic QR Code และอัปโหลดไฟล์ PDF ได้ 100MB ต่อไฟล์ รองรับสถิติพื้นฐาน</p>
+                                <p class="text-gray-600 text-sm mb-6">คุณสามารถสร้าง Dynamic QR Code และอัปโหลดไฟล์ PDF ได้ไม่เกิน 10MB ต่อไฟล์ โดยระบบจะบีบอัดไฟล์อัตโนมัติก่อนอัปโหลด</p>
                                 <button class="bg-primary text-white px-6 py-2.5 rounded-xl font-bold hover:bg-secondary transition w-full sm:w-auto"><i class="fa-solid fa-crown mr-2"></i>อัปเกรดเป็น PRO</button>
                             </div>
                         </div>
@@ -549,25 +561,36 @@
                         <!-- System Tab (Admin Only) -->
                         <div id="scontent-system" class="scontent-panel hidden fade-in">
                             <h3 class="text-2xl font-extrabold text-red-600 mb-8"><i class="fa-solid fa-gear mr-2"></i> ตั้งค่าระบบส่วนกลาง (Admin)</h3>
-                            <div class="space-y-6 max-w-lg bg-red-50/30 p-6 rounded-2xl border border-red-100">
-                                <div>
-                                    <label class="block text-sm font-bold text-gray-800 mb-2">ข้อความประกาศบน Header (แสดงให้ทุกคนเห็น)</label>
-                                    <input type="text" id="set-sys-announcement" placeholder="เช่น แจ้งปิดปรับปรุงระบบคืนนี้..." class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none font-medium">
-                                    <p class="text-xs text-gray-500 mt-2">หากปล่อยว่าง ระบบจะซ่อนแถบประกาศอัตโนมัติ</p>
+                            <div class="max-w-2xl bg-red-50/30 p-6 rounded-2xl border border-red-100">
+                                <div class="flex items-center justify-between gap-4 mb-6">
+                                    <div>
+                                        <h4 class="font-bold text-gray-900">สถานะระบบ</h4>
+                                        <p id="system-status-label" class="text-xs text-gray-500 mt-1">ระบบเปิดให้ใช้งานตามปกติ</p>
+                                    </div>
+                                    <label class="relative inline-flex items-center cursor-pointer shrink-0">
+                                        <input type="checkbox" id="set-sys-enabled" checked class="sr-only peer">
+                                        <span class="w-12 h-7 bg-gray-300 rounded-full peer peer-checked:bg-green-500 transition-colors"></span>
+                                        <span class="absolute left-1 top-1 w-5 h-5 bg-white rounded-full shadow-sm transition-transform peer-checked:translate-x-5"></span>
+                                    </label>
                                 </div>
-                                <div>
+                                <div class="space-y-5">
+                                    <div>
+                                        <label class="block text-sm font-bold text-gray-800 mb-2">ข้อความประกาศแบบป็อพอัพ</label>
+                                        <input type="text" id="set-sys-announcement" placeholder="เช่น แจ้งปิดปรับปรุงระบบคืนนี้..." class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-red-500 focus:border-red-500 outline-none font-medium">
+                                        <p class="text-xs text-gray-500 mt-2">หากปล่อยว่าง ระบบจะไม่แสดงป็อพอัพประกาศ</p>
+                                    </div>
                                     <label class="flex items-center gap-3 cursor-pointer">
                                         <input type="checkbox" id="set-sys-allow-signup" checked class="w-5 h-5 text-primary rounded border-gray-300 focus:ring-primary">
                                         <span class="text-sm font-bold text-gray-800">อนุญาตให้ผู้ใช้ใหม่สมัครสมาชิก</span>
                                     </label>
                                 </div>
-                                <div class="pt-4 border-t border-red-100 flex flex-col sm:flex-row gap-3">
-                                    <button onclick="saveSystemSettings()" class="bg-red-600 text-white px-8 py-3 rounded-xl font-bold hover:bg-red-700 transition w-full md:w-auto shadow-sm hover:shadow-md">อัปเดตระบบส่วนกลาง</button>
-                                    <button onclick="clearAllScanStatistics()" class="bg-white text-red-600 border border-red-200 px-8 py-3 rounded-xl font-bold hover:bg-red-50 transition w-full md:w-auto shadow-sm">
+                                <div class="mt-6 pt-5 border-t border-red-100 grid grid-cols-1 sm:grid-cols-2 gap-3">
+                                    <button onclick="saveSystemSettings()" class="bg-red-600 text-white px-5 py-3 rounded-xl font-bold hover:bg-red-700 transition w-full shadow-sm hover:shadow-md">อัปเดตระบบส่วนกลาง</button>
+                                    <button onclick="clearAllScanStatistics()" class="bg-white text-red-600 border border-red-200 px-5 py-3 rounded-xl font-bold hover:bg-red-50 transition w-full shadow-sm">
                                         <i class="fa-solid fa-rotate-left mr-2"></i>เคลียร์สถิติการสแกนทั้งหมด
                                     </button>
                                 </div>
-                                <p class="text-xs text-red-600 font-medium"><i class="fa-solid fa-triangle-exclamation mr-1"></i>การดำเนินการนี้จะรีเซ็ตยอดสแกนและลบประวัติการสแกนทั้งหมด แต่จะไม่ลบ QR Code</p>
+                                <p class="text-xs text-red-600 font-medium mt-4"><i class="fa-solid fa-triangle-exclamation mr-1"></i>การดำเนินการนี้จะรีเซ็ตยอดสแกนและลบประวัติการสแกนทั้งหมด แต่จะไม่ลบ QR Code</p>
                             </div>
                         </div>
 
@@ -764,7 +787,7 @@
         // ฟังก์ชันถอดรหัส Secret Key ที่ถูกซ่อนไว้เป็น Base64
         const _getCSec = () => atob('c0gxMmpCQlBNTDJocDhhZkNfVFlGMnhfc0NF');
 
-        const ADMIN_EMAIL = "patiphanbomroechit@gmail.com";
+        const ADMIN_EMAIL = "ptp.vertex@gmail.com";
         const COLLECTION_NAME = "hovercode_assets"; 
         
         let currentUser = null;
@@ -931,17 +954,27 @@
                 }
             }
 
-            // Setup Realtime System Banner
+            // Setup Realtime System Announcement Popup
+            let systemAnnouncementTimeout;
+            const updateSystemStatusLabel = (enabled) => {
+                const label = safeEl('system-status-label');
+                if (label) label.innerText = enabled ? 'ระบบเปิดให้ใช้งานตามปกติ' : 'ระบบปิดการใช้งานชั่วคราว';
+            };
             systemUnsubscribe = onSnapshot(doc(db, "app_settings", "global"), (docSnap) => {
                 if (docSnap.exists()) {
                     const sysData = docSnap.data();
-                    const banner = safeEl('sys-announcement');
-                    const bannerText = safeEl('sys-announcement-text');
-                    if(sysData.announcement && banner && bannerText) {
-                        bannerText.innerText = sysData.announcement;
-                        banner.classList.remove('hidden');
-                    } else if (banner) {
-                        banner.classList.add('hidden');
+                    const announcementPopup = safeEl('sys-announcement');
+                    const announcementText = safeEl('sys-announcement-text');
+                    const systemEnabled = sysData.systemEnabled !== false;
+                    if (safeEl('set-sys-enabled')) safeEl('set-sys-enabled').checked = systemEnabled;
+                    updateSystemStatusLabel(systemEnabled);
+                    clearTimeout(systemAnnouncementTimeout);
+                    if(sysData.announcement && announcementPopup && announcementText) {
+                        announcementText.innerText = sysData.announcement;
+                        announcementPopup.classList.remove('hidden');
+                        systemAnnouncementTimeout = setTimeout(() => announcementPopup.classList.add('hidden'), 8000);
+                    } else if (announcementPopup) {
+                        announcementPopup.classList.add('hidden');
                     }
                     if(safeEl('set-sys-announcement')) safeEl('set-sys-announcement').value = sysData.announcement || '';
                 }
@@ -1146,7 +1179,8 @@
             if(!isAdmin) return;
             const txt = safeEl('set-sys-announcement')?.value.trim() || "";
             try {
-                await setDoc(doc(db, "app_settings", "global"), { announcement: txt }, { merge: true });
+                const systemEnabled = safeEl('set-sys-enabled')?.checked !== false;
+                await setDoc(doc(db, "app_settings", "global"), { announcement: txt, systemEnabled }, { merge: true });
                 showToast("อัปเดตระบบส่วนกลางเรียบร้อย");
             } catch(e) {
                 showToast("อัปเดตล้มเหลว ตรวจสอบสิทธิ์", "error");
@@ -1450,7 +1484,7 @@
             });
             
             if(safeEl('quick-file-name')) {
-                if(type === 'file') safeEl('quick-file-name').innerText = 'คลิกเพื่อเลือกไฟล์ (PDF, รูปภาพ ฯลฯ)';
+                if(type === 'file') safeEl('quick-file-name').innerText = 'คลิกเพื่อเลือกไฟล์ (ระบบจะบีบอัดอัตโนมัติ)';
             }
         };
 
@@ -1462,20 +1496,45 @@
             else if(safeEl('quick-color-picker')) safeEl('quick-color-picker').value = hex;
         };
 
-        const MAX_FILE_SIZE = 100 * 1024 * 1024; // 100 MB ต่อไฟล์
+        const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10 MB ต่อไฟล์หลังบีบอัด
+        const formatFileSize = (bytes) => `${(bytes / (1024 * 1024)).toFixed(2)} MB`;
+        const prepareUploadFile = async (file) => {
+            if (file.size <= MAX_FILE_SIZE) return file;
+            if (!window.JSZip) throw new Error('ไม่สามารถเตรียมไฟล์ได้ กรุณาลองใหม่อีกครั้ง');
+
+            const zip = new JSZip();
+            zip.file(file.name, file);
+            const compressedBlob = await zip.generateAsync({
+                type: 'blob',
+                compression: 'DEFLATE',
+                compressionOptions: { level: 9 }
+            });
+            if (compressedBlob.size > MAX_FILE_SIZE) {
+                throw new Error(`ไฟล์ยังมีขนาด ${formatFileSize(compressedBlob.size)} หลังบีบอัด ซึ่งเกิน 10 MB`);
+            }
+            return new File([compressedBlob], `${file.name}.zip`, { type: 'application/zip' });
+        };
+
         const quickFileEl = safeEl('quick-file');
         if (quickFileEl) {
-            quickFileEl.addEventListener('change', (e) => {
-                if(e.target.files.length > 0) {
-                    quickFileObj = e.target.files[0];
-                    if(quickFileObj.size > MAX_FILE_SIZE) {
-                        showToast("ขนาดไฟล์ต้องไม่เกิน 100MB", "error");
-                        quickFileObj = null; return;
+            quickFileEl.addEventListener('change', async (e) => {
+                const selectedFile = e.target.files?.[0];
+                if (!selectedFile) return;
+                const fileNameEl = safeEl('quick-file-name');
+                try {
+                    if (fileNameEl) fileNameEl.innerText = selectedFile.size > MAX_FILE_SIZE ? 'กำลังบีบอัดไฟล์...' : selectedFile.name;
+                    quickFileObj = await prepareUploadFile(selectedFile);
+                    if (fileNameEl) {
+                        fileNameEl.innerText = quickFileObj.name;
+                        fileNameEl.classList.add('text-primary');
                     }
-                    if(safeEl('quick-file-name')) {
-                        safeEl('quick-file-name').innerText = quickFileObj.name;
-                        safeEl('quick-file-name').classList.add('text-primary');
-                    }
+                    showToast(selectedFile.size > MAX_FILE_SIZE
+                        ? `บีบอัดไฟล์แล้ว เหลือ ${formatFileSize(quickFileObj.size)}`
+                        : `เลือกไฟล์แล้ว ขนาด ${formatFileSize(quickFileObj.size)}`, 'success');
+                } catch (error) {
+                    quickFileObj = null;
+                    if (fileNameEl) fileNameEl.innerText = 'คลิกเพื่อเลือกไฟล์ (ระบบจะบีบอัดอัตโนมัติ)';
+                    showToast(error.message || 'ไม่สามารถเตรียมไฟล์ได้ กรุณาลองใหม่อีกครั้ง', 'error');
                 }
             });
         }
@@ -1536,7 +1595,7 @@
                 inputData = quickFileObj.name;
                 
                 if(CLOUDINARY_CLOUD_NAME === 'ใส่_CLOUD_NAME_ของคุณที่นี่') {
-                    return showToast("กรุณาตรวจสอบ Cloud Name ในโค้ด", "error");
+                    return showToast("กรุณาตรวจสอบการตั้งค่าการอัปโหลด", "error");
                 }
             }
 
@@ -1561,7 +1620,7 @@
                     const bar = safeEl('quick-progress-bar');
                     const txt = safeEl('quick-progress-text');
                     if(progressWrap) progressWrap.classList.remove('hidden');
-                    if(statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-primary mr-2"></i>กำลังอัปโหลดไฟล์ (Cloudinary)...';
+                    if(statusText) statusText.innerHTML = '<i class="fa-solid fa-spinner fa-spin text-primary mr-2"></i>กำลังอัปโหลดไฟล์...';
                     if(bar) bar.style.width = '0%';
                     if(txt) txt.innerText = '0%';
                     if(sizeText) sizeText.innerText = '0.00 MB / 0.00 MB';
@@ -1586,7 +1645,8 @@
                             formData.append('signature', signature);
 
                             const xhr = new XMLHttpRequest();
-                            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/auto/upload`, true);
+                            // ใช้ประเภทไฟล์ทั่วไป เพื่อรองรับ PDF และไฟล์เอกสารขนาดใหญ่โดยไม่แปลงไฟล์
+                            xhr.open('POST', `https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/raw/upload`, true);
                             
                             xhr.upload.onprogress = (e) => {
                                 if (e.lengthComputable) {
@@ -1602,14 +1662,22 @@
                             };
                             
                             xhr.onload = () => {
-                                if (xhr.status === 200) {
-                                    const response = JSON.parse(xhr.responseText);
-                                    resolve({ url: response.secure_url, public_id: response.public_id, resource_type: response.resource_type });
+                                let response = {};
+                                try { response = JSON.parse(xhr.responseText || '{}'); } catch (e) {}
+                                if (xhr.status >= 200 && xhr.status < 300 && response.secure_url) {
+                                    resolve({ url: response.secure_url, public_id: response.public_id, resource_type: response.resource_type || 'raw' });
                                 } else {
-                                    reject(new Error('อัปโหลดล้มเหลว (' + xhr.status + ') ตรวจสอบ Cloud Name'));
+                                    const serverMessage = String(response?.error?.message || '').toLowerCase();
+                                    if (serverMessage.includes('size') || serverMessage.includes('large') || serverMessage.includes('limit')) {
+                                        reject(new Error('ไฟล์มีขนาดใหญ่เกินข้อจำกัดของพื้นที่จัดเก็บ'));
+                                    } else {
+                                        reject(new Error('ไม่สามารถอัปโหลดไฟล์นี้ได้ กรุณาลองใหม่อีกครั้ง'));
+                                    }
                                 }
                             };
-                            xhr.onerror = () => reject(new Error('เกิดข้อผิดพลาดในการเชื่อมต่ออินเทอร์เน็ต'));
+                            xhr.onerror = () => reject(new Error('ไม่สามารถเชื่อมต่อเพื่ออัปโหลดไฟล์ได้ กรุณาลองใหม่อีกครั้ง'));
+                            xhr.ontimeout = () => reject(new Error('การอัปโหลดใช้เวลานานเกินไป กรุณาลองใหม่อีกครั้ง'));
+                            xhr.timeout = 15 * 60 * 1000;
                             xhr.send(formData);
                         } catch(e) { reject(e); }
                     });
@@ -1634,7 +1702,7 @@
                     groupId: groupId || null,
                     groupName: groupId ? groupName : null,
                     cloudinaryPublicId: cloudinaryPublicId || null,
-                    cloudinaryResourceType: cloudinaryResourceType || 'image',
+                    cloudinaryResourceType: cloudinaryResourceType || 'raw',
                     createdAt: Date.now() + index
                 })));
                 
@@ -1646,7 +1714,7 @@
                 if(safeEl('quick-name')) safeEl('quick-name').value = '';
                 quickFileObj = null;
                 if(safeEl('quick-file-name')) {
-                    safeEl('quick-file-name').innerText = 'คลิกเพื่อเลือกไฟล์ (PDF, รูปภาพ ฯลฯ)';
+                    safeEl('quick-file-name').innerText = 'คลิกเพื่อเลือกไฟล์ (ระบบจะบีบอัดอัตโนมัติ)';
                     safeEl('quick-file-name').classList.remove('text-primary');
                 }
                 safeEl('quick-advanced')?.classList.add('hidden');
@@ -1656,7 +1724,7 @@
             } catch (error) {
                 console.error("Upload Error:", error);
                 if(statusText) statusText.innerHTML = `<i class="fa-solid fa-triangle-exclamation text-red-500 mr-2"></i>อัปโหลดไม่สำเร็จ: ${error.message}`;
-                showToast("อัปโหลดไม่สำเร็จ โปรดดูข้อความด้านล่าง", "error");
+                showToast("อัปโหลดไม่สำเร็จ โปรดดูรายละเอียดในป็อพอัพ", "error");
             } finally {
                 btn.disabled = false; 
                 if(spin) spin.classList.add('hidden');
@@ -2002,7 +2070,7 @@
                 const spinner = safeEl('login-spinner');
                 if(spinner) spinner.classList.remove('hidden');
                 try { await signInWithPopup(auth, googleProvider); } 
-                catch (error) { showToast("เข้าสู่ระบบล้มเหลว (โดเมนนี้อาจต้องตั้งค่าใน Firebase)", "error"); }
+                catch (error) { showToast("เข้าสู่ระบบไม่สำเร็จ กรุณาลองใหม่อีกครั้ง", "error"); }
                 finally { if(spinner) spinner.classList.add('hidden'); }
             });
         }
