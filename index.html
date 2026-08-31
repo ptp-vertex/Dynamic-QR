@@ -722,6 +722,26 @@
         </div>
     </div>
 
+    <!-- Created QR Result Modal -->
+    <div id="created-qr-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[90] flex items-center justify-center p-4" onclick="if(event.target === this) closeCreatedQRPopup()">
+        <div id="created-qr-card" class="bg-white rounded-3xl p-6 md:p-8 max-w-sm w-full relative shadow-2xl fade-in text-center">
+            <button type="button" onclick="closeCreatedQRPopup()" class="absolute top-4 right-4 text-gray-400 hover:text-gray-700 bg-gray-50 rounded-full w-9 h-9 flex items-center justify-center transition" aria-label="ปิดป็อพอัพ">
+                <i class="fa-solid fa-xmark"></i>
+            </button>
+            <div class="w-14 h-14 rounded-2xl bg-green-50 text-green-600 flex items-center justify-center text-2xl mx-auto mb-4">
+                <i class="fa-solid fa-circle-check"></i>
+            </div>
+            <h2 class="text-xl font-extrabold text-gray-900 mb-1">สร้างคิวอาร์สำเร็จ</h2>
+            <p id="created-qr-name" class="text-sm text-gray-500 mb-5 truncate px-6">ชื่อคิวอาร์โค้ด</p>
+            <div class="relative inline-flex items-center justify-center p-3 bg-white border border-gray-100 rounded-2xl shadow-sm mb-4">
+                <img id="created-qr-image" src="" alt="คิวอาร์โค้ดที่สร้างเสร็จ" class="w-56 h-56 object-contain rounded-xl">
+                <div id="created-qr-countdown" class="absolute -top-3 -right-3 w-12 h-12 rounded-full bg-red-600 text-white border-4 border-white shadow-lg flex items-center justify-center text-sm font-extrabold">10</div>
+            </div>
+            <p id="created-qr-hint" class="text-xs text-gray-400 mb-5">ป็อพอัพจะปิดเองใน 10 วินาที หากไม่มีการแตะหน้าจอ</p>
+            <button type="button" onclick="closeCreatedQRPopup()" class="w-full py-3 px-5 bg-gray-100 text-gray-700 rounded-xl font-bold hover:bg-gray-200 transition">ปิด</button>
+        </div>
+    </div>
+
     <!-- Scan Details Modal -->
     <div id="scan-details-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[75] flex items-center justify-center p-4">
         <div class="bg-white rounded-3xl w-full max-w-2xl relative shadow-2xl fade-in flex flex-col max-h-[80vh] overflow-hidden">
@@ -1560,6 +1580,51 @@
             return parsed;
         };
 
+        let createdQRPopupTimer = null;
+        let createdQRPopupInteracted = false;
+        const createdQRImageUrl = (shortCode, color = '#0f172a') => `https://api.qrserver.com/v1/create-qr-code/?size=700x700&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?s=${shortCode}`)}&color=${encodeURIComponent(color.replace('#', ''))}&bgcolor=ffffff&margin=2&format=png`;
+
+        window.closeCreatedQRPopup = () => {
+            clearInterval(createdQRPopupTimer);
+            createdQRPopupTimer = null;
+            safeEl('created-qr-modal')?.classList.add('hidden');
+        };
+
+        window.openCreatedQRPopup = ({ name, shortCode, color }) => {
+            if (!shortCode) return;
+            const modal = safeEl('created-qr-modal');
+            const image = safeEl('created-qr-image');
+            const countdown = safeEl('created-qr-countdown');
+            const hint = safeEl('created-qr-hint');
+            const card = safeEl('created-qr-card');
+            if (!modal || !image || !countdown || !card) return;
+            clearInterval(createdQRPopupTimer);
+            createdQRPopupInteracted = false;
+            safeEl('created-qr-name').innerText = name || 'คิวอาร์โค้ด';
+            image.src = createdQRImageUrl(shortCode, color || '#0f172a');
+            countdown.classList.remove('hidden');
+            hint.innerText = 'ป็อพอัพจะปิดเองใน 10 วินาที หากไม่มีการแตะหน้าจอ';
+            modal.classList.remove('hidden');
+            let remaining = 10;
+            countdown.innerText = remaining;
+            createdQRPopupTimer = setInterval(() => {
+                if (createdQRPopupInteracted) return;
+                remaining -= 1;
+                countdown.innerText = remaining;
+                if (remaining <= 0) window.closeCreatedQRPopup();
+            }, 1000);
+            const stopCountdown = () => {
+                if (createdQRPopupInteracted) return;
+                createdQRPopupInteracted = true;
+                clearInterval(createdQRPopupTimer);
+                createdQRPopupTimer = null;
+                countdown.classList.add('hidden');
+                hint.innerText = 'แตะหน้าจอแล้ว ตัวนับหยุดลง กรุณากดปุ่มปิดเมื่อเสร็จสิ้น';
+            };
+            card.onpointerdown = stopCountdown;
+            card.ontouchstart = stopCountdown;
+        };
+
         window.quickSaveQR = async () => {
             const btn = safeEl('btn-quick-save');
             if(!btn) return;
@@ -1692,11 +1757,15 @@
                 const rowsToSave = bulkRows.length > 1
                     ? bulkRows
                     : [{ name, destination: finalDestination }];
-                await Promise.all(rowsToSave.map((row, index) => addDoc(collection(db, COLLECTION_NAME), {
+                const qrRecords = rowsToSave.map((row) => ({
+                    ...row,
+                    shortCode: (quickType !== 'text') ? generateShortCode(4) : null
+                }));
+                await Promise.all(qrRecords.map((row, index) => addDoc(collection(db, COLLECTION_NAME), {
                     userId: currentUser.uid, userEmail: currentUser.email,
-                    type: quickType, name: groupId ? row.name : row.name,
+                    type: quickType, name: row.name,
                     destination: row.destination,
-                    shortCode: (quickType !== 'text') ? generateShortCode(4) : null,
+                    shortCode: row.shortCode,
                     color: quickColor, bgColor: '#ffffff', margin: 2, ecc: 'M',
                     status: 'active', scans: 0,
                     groupId: groupId || null,
@@ -1705,8 +1774,11 @@
                     cloudinaryResourceType: cloudinaryResourceType || 'raw',
                     createdAt: Date.now() + index
                 })));
-                
-                showToast(groupId ? `สร้างกลุ่มโปรเจกต์สำเร็จ ${rowsToSave.length} รายการ!` : "สร้าง Dynamic QR สำเร็จ!");
+
+                if (quickType === 'file' && qrRecords[0]?.shortCode) {
+                    openCreatedQRPopup({ name: qrRecords[0].name, shortCode: qrRecords[0].shortCode, color: quickColor });
+                }
+                showToast(groupId ? `สร้างกลุ่มโปรเจกต์สำเร็จ ${qrRecords.length} รายการ!` : "สร้าง Dynamic QR สำเร็จ!");
                 
                 // Reset form
                 if(safeEl('quick-url')) safeEl('quick-url').value = '';
