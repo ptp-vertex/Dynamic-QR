@@ -340,6 +340,9 @@
                     </div>
                 </div>
 
+                <!-- Shared Workspace Badge -->
+                <div id="workspace-badge" class="hidden mb-4 inline-flex items-center gap-2 px-3 py-1.5 bg-amber-50 text-amber-700 border border-amber-200 rounded-full text-xs font-bold"><i class="fa-solid fa-people-group"></i> <span id="workspace-badge-text"></span></div>
+
                 <!-- List Header & Filters -->
                 <div class="flex flex-col md:flex-row justify-between items-center mb-6 gap-4">
                     <div class="flex items-center gap-3">
@@ -466,7 +469,7 @@
                                             <i class="fa-regular fa-user" id="profile-avatar-icon"></i>
                                             <img id="profile-avatar-img" src="" class="w-full h-full object-cover hidden" alt="รูปโปรไฟล์">
                                         </div>
-                                        <button type="button" onclick="safeEl('profile-avatar-input')?.click()" class="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow hover:bg-secondary transition">
+                                        <button type="button" onclick="document.getElementById('profile-avatar-input')?.click()" class="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow hover:bg-secondary transition">
                                             <i class="fa-solid fa-camera text-xs" id="avatar-upload-icon"></i>
                                             <i class="fa-solid fa-circle-notch fa-spin text-xs hidden" id="avatar-upload-spinner"></i>
                                         </button>
@@ -846,7 +849,7 @@
     <script type="module">
         import { initializeApp } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-app.js";
         import { getAuth, signInWithPopup, GoogleAuthProvider, signOut, onAuthStateChanged } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-auth.js";
-        import { getFirestore, collection, addDoc, getDocs, doc, deleteDoc, query, where, updateDoc, increment, onSnapshot, getDoc, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
+        import { getFirestore, collection, collectionGroup, addDoc, getDocs, doc, deleteDoc, query, where, updateDoc, increment, onSnapshot, getDoc, setDoc, writeBatch } from "https://www.gstatic.com/firebasejs/10.8.0/firebase-firestore.js";
 
         // --- Firebase Config ---
         const firebaseConfig = {
@@ -876,6 +879,8 @@
         const COLLECTION_NAME = "hovercode_assets"; 
         
         let currentUser = null;
+        let workspaceOwnerId = null;
+        let workspaceOwnerLabel = null;
         let pendingInviteOwnerId = new URLSearchParams(window.location.search).get('invite') || null;
         let isAdmin = false;
         let allItems = [];
@@ -1118,6 +1123,7 @@
                     safeEl('page-landing')?.classList.add('hidden');
                     safeEl('page-app')?.classList.remove('hidden');
                     toggleLoginModal(false);
+                    await resolveWorkspaceOwner();
                     navTo('dashboard'); 
                     subscribeTeamMembers();
                     checkPendingTeamInvite();
@@ -1126,6 +1132,8 @@
                     safeEl('page-app')?.classList.add('hidden');
                     if(itemsUnsubscribe) { itemsUnsubscribe(); itemsUnsubscribe = null; }
                     if(teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
+                    workspaceOwnerId = null;
+                    workspaceOwnerLabel = null;
                 }
             });
         }
@@ -1414,6 +1422,8 @@
                     addedBy: 'invite_link'
                 });
                 showToast('เข้าร่วมทีมสำเร็จแล้ว!', 'success');
+                await resolveWorkspaceOwner();
+                subscribeToData(activeView === 'settings' ? 'dashboard' : activeView);
             } catch (e) {
                 console.error("Accept join team error:", e);
                 showToast('เข้าร่วมทีมไม่สำเร็จ: ' + e.message, 'error');
@@ -1619,6 +1629,41 @@
         };
 
         // REAL-TIME SYNC
+        // --- Resolve which workspace (owner) the current user should see ---
+        // ถ้าอีเมลของผู้ใช้ถูกเพิ่มเป็นสมาชิกในทีมของคนอื่น จะสลับไปดู QR ของ workspace เจ้าของทีมแทน
+        async function resolveWorkspaceOwner() {
+            if (!currentUser) return;
+            workspaceOwnerId = currentUser.uid;
+            workspaceOwnerLabel = null;
+            try {
+                const membersQuery = query(collectionGroup(db, "members"), where("email", "==", currentUser.email.toLowerCase()));
+                const snap = await getDocs(membersQuery);
+                if (!snap.empty) {
+                    const ownerId = snap.docs[0].ref.parent.parent?.id;
+                    if (ownerId && ownerId !== currentUser.uid) {
+                        workspaceOwnerId = ownerId;
+                        const ownerDoc = await getDoc(doc(db, "hovercode_users", ownerId));
+                        workspaceOwnerLabel = ownerDoc.exists() ? (ownerDoc.data().displayName || ownerDoc.data().email) : 'ทีมที่เข้าร่วม';
+                    }
+                }
+            } catch (e) {
+                console.error("Resolve workspace error:", e);
+            }
+            updateWorkspaceBadge();
+        }
+
+        function updateWorkspaceBadge() {
+            const badge = safeEl('workspace-badge');
+            const text = safeEl('workspace-badge-text');
+            if (!badge) return;
+            if (workspaceOwnerLabel) {
+                badge.classList.remove('hidden');
+                if (text) text.innerText = `กำลังดู Workspace ของ: ${workspaceOwnerLabel}`;
+            } else {
+                badge.classList.add('hidden');
+            }
+        }
+
         function subscribeToData(viewId) {
             if (!currentUser) return;
             if (itemsUnsubscribe) { itemsUnsubscribe(); itemsUnsubscribe = null; }
@@ -1630,7 +1675,7 @@
 
             let q = (isAdmin && viewId === 'admin') 
                 ? collection(db, COLLECTION_NAME) 
-                : query(collection(db, COLLECTION_NAME), where("userId", "==", currentUser.uid));
+                : query(collection(db, COLLECTION_NAME), where("userId", "==", workspaceOwnerId || currentUser.uid));
             
             itemsUnsubscribe = onSnapshot(q, (snapshot) => {
                 allItems = snapshot.docs.map(d => ({ id: d.id, ...d.data() }));
@@ -1725,6 +1770,7 @@
                             <h3 class="font-extrabold text-gray-900 truncate pr-2 text-lg" title="${item.name}">${item.name}</h3>
                             <span class="bg-indigo-50 text-primary text-[9px] font-bold px-2 py-1 rounded-md uppercase tracking-wider shrink-0 flex items-center gap-1"><i class="fa-solid ${typeIcon}"></i> ${item.type}</span>
                         </div>
+                        ${(item.createdByEmail && item.createdByEmail !== currentUser?.email) ? `<p class="text-[10px] text-amber-600 font-bold mb-2 flex items-center gap-1"><i class="fa-regular fa-user"></i> สร้างโดย ${item.createdByEmail}</p>` : ''}
                         
                         <p class="text-[11px] text-gray-500 truncate mb-4 font-mono bg-gray-50 px-2 py-1 rounded-md border border-gray-100 ${isPaused ? 'line-through' : ''}">${isStatic ? item.destination : shortLink}</p>
                         
@@ -1957,6 +2003,7 @@
         let createdQRPopupTimer = null;
         let createdQRPopupInteracted = false;
         const createdQRImageUrl = (shortCode, color = '#0f172a') => `https://api.qrserver.com/v1/create-qr-code/?size=700x700&data=${encodeURIComponent(`${window.location.origin}${window.location.pathname}?s=${shortCode}`)}&color=${encodeURIComponent(color.replace('#', ''))}&bgcolor=ffffff&margin=2&format=png`;
+        const createdQRImageUrlFromData = (rawData, color = '#0f172a') => `https://api.qrserver.com/v1/create-qr-code/?size=700x700&data=${encodeURIComponent(rawData)}&color=${encodeURIComponent(color.replace('#', ''))}&bgcolor=ffffff&margin=2&format=png`;
 
         window.closeCreatedQRPopup = () => {
             clearInterval(createdQRPopupTimer);
@@ -1964,8 +2011,8 @@
             safeEl('created-qr-modal')?.classList.add('hidden');
         };
 
-        window.openCreatedQRPopup = ({ name, shortCode, color }) => {
-            if (!shortCode) return;
+        window.openCreatedQRPopup = ({ name, shortCode, color, staticData }) => {
+            if (!shortCode && !staticData) return;
             const modal = safeEl('created-qr-modal');
             const image = safeEl('created-qr-image');
             const countdown = safeEl('created-qr-countdown');
@@ -1975,7 +2022,7 @@
             clearInterval(createdQRPopupTimer);
             createdQRPopupInteracted = false;
             safeEl('created-qr-name').innerText = name || 'คิวอาร์โค้ด';
-            image.src = createdQRImageUrl(shortCode, color || '#0f172a');
+            image.src = shortCode ? createdQRImageUrl(shortCode, color || '#0f172a') : createdQRImageUrlFromData(staticData, color || '#0f172a');
             countdown.classList.remove('hidden');
             hint.innerText = 'ป็อพอัพจะปิดเองใน 10 วินาที หากไม่มีการแตะหน้าจอ';
             modal.classList.remove('hidden');
@@ -2136,7 +2183,8 @@
                     shortCode: (quickType !== 'text') ? generateShortCode(4) : null
                 }));
                 await Promise.all(qrRecords.map((row, index) => addDoc(collection(db, COLLECTION_NAME), {
-                    userId: currentUser.uid, userEmail: currentUser.email,
+                    userId: workspaceOwnerId || currentUser.uid, userEmail: currentUser.email,
+                    createdByUid: currentUser.uid, createdByEmail: currentUser.email,
                     type: quickType, name: row.name,
                     destination: row.destination,
                     shortCode: row.shortCode,
@@ -2149,8 +2197,12 @@
                     createdAt: Date.now() + index
                 })));
 
-                if (quickType === 'file' && qrRecords[0]?.shortCode) {
-                    openCreatedQRPopup({ name: qrRecords[0].name, shortCode: qrRecords[0].shortCode, color: quickColor });
+                if (qrRecords.length === 1) {
+                    if (qrRecords[0]?.shortCode) {
+                        openCreatedQRPopup({ name: qrRecords[0].name, shortCode: qrRecords[0].shortCode, color: quickColor });
+                    } else if (quickType === 'text' && qrRecords[0]?.destination) {
+                        openCreatedQRPopup({ name: qrRecords[0].name, staticData: qrRecords[0].destination, color: quickColor });
+                    }
                 }
                 showToast(groupId ? `สร้างกลุ่มโปรเจกต์สำเร็จ ${qrRecords.length} รายการ!` : "สร้าง Dynamic QR สำเร็จ!");
                 
