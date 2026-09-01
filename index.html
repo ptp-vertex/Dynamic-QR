@@ -492,18 +492,24 @@
                                             <i class="fa-regular fa-user" id="profile-avatar-icon"></i>
                                             <img id="profile-avatar-img" src="" class="w-full h-full object-cover hidden" alt="รูปโปรไฟล์">
                                         </div>
-                                        <button type="button" onclick="document.getElementById('profile-avatar-input')?.click()" class="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow hover:bg-secondary transition">
-                                            <i class="fa-solid fa-camera text-xs" id="avatar-upload-icon"></i>
+                                        <button type="button" onclick="window.toggleAvatarMenu(event)" id="avatar-edit-btn" class="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow hover:bg-secondary transition">
+                                            <i class="fa-solid fa-pen text-xs" id="avatar-upload-icon"></i>
                                             <i class="fa-solid fa-circle-notch fa-spin text-xs hidden" id="avatar-upload-spinner"></i>
                                         </button>
-                                        <button type="button" onclick="window.deleteProfileAvatar()" id="avatar-delete-btn" class="hidden absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center border-2 border-white shadow hover:bg-red-600 transition">
-                                            <i class="fa-solid fa-trash text-[10px]"></i>
-                                        </button>
+
+                                        <!-- Avatar Edit Dropdown -->
+                                        <div id="avatar-menu" class="hidden absolute top-full right-0 mt-2 w-44 bg-white rounded-xl shadow-xl border border-gray-100 py-1.5 z-20 overflow-hidden">
+                                            <button type="button" onclick="window.avatarMenuChoosePhoto()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"><i class="fa-regular fa-image w-4 text-gray-400"></i>เลือกรูป</button>
+                                            <button type="button" onclick="window.avatarMenuTakePhoto()" class="w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-gray-700 hover:bg-gray-50 transition"><i class="fa-solid fa-camera w-4 text-gray-400"></i>ถ่ายรูป</button>
+                                            <button type="button" id="avatar-menu-delete-btn" onclick="window.avatarMenuDeletePhoto()" class="hidden w-full flex items-center gap-2.5 px-4 py-2.5 text-sm font-medium text-red-500 hover:bg-red-50 transition border-t border-gray-50"><i class="fa-solid fa-trash w-4"></i>ลบรูป</button>
+                                        </div>
+
                                         <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" onchange="window.openAvatarCrop(event)">
+                                        <input type="file" id="profile-avatar-camera-input" accept="image/*" capture="user" class="hidden" onchange="window.openAvatarCrop(event)">
                                     </div>
                                     <div>
                                         <p class="font-bold text-gray-800 text-sm">รูปโปรไฟล์</p>
-                                        <p class="text-xs text-gray-500">คลิกไอคอนกล้องเพื่ออัปโหลดรูปใหม่ (ไม่เกิน 5MB) หรือกดถังขยะเพื่อลบรูป</p>
+                                        <p class="text-xs text-gray-500">กดไอคอนแก้ไขเพื่อเลือกรูป ถ่ายรูป หรือลบรูป (ไม่เกิน 5MB)</p>
                                     </div>
                                 </div>
                                 <div>
@@ -1227,7 +1233,12 @@
                 return;
             }
             if (emptyHint) emptyHint.classList.add('hidden');
-            list.innerHTML = members.map(m => `
+            list.innerHTML = members.map(m => {
+                const accepted = !!m.uid;
+                const statusBadge = accepted
+                    ? `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-green-600 bg-green-50 px-2.5 py-1 rounded-full"><i class="fa-solid fa-circle-check"></i>ตอบรับแล้ว</span>`
+                    : `<span class="inline-flex items-center gap-1 text-[11px] font-bold text-amber-600 bg-amber-50 px-2.5 py-1 rounded-full"><i class="fa-solid fa-clock"></i>เชิญแล้ว รอเข้าร่วม</span>`;
+                return `
                 <div class="flex justify-between items-center p-4">
                     <div class="flex items-center gap-3 min-w-0">
                         <div class="w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center font-bold shrink-0"><i class="fa-regular fa-user"></i></div>
@@ -1237,11 +1248,12 @@
                         </div>
                     </div>
                     <div class="flex items-center gap-3 shrink-0">
-                        <span class="text-xs font-bold text-gray-500">สมาชิก</span>
+                        ${statusBadge}
                         <button onclick="window.removeTeamMember('${m.id}')" class="text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition" title="นำออกจากทีม"><i class="fa-solid fa-trash-can"></i></button>
                     </div>
                 </div>
-            `).join('');
+            `;
+            }).join('');
         }
 
         function subscribeTeamMembers() {
@@ -1471,9 +1483,40 @@
                     if (icon) icon.classList.remove('hidden');
                 }
             });
-            const delBtn = safeEl('avatar-delete-btn');
+            const delBtn = safeEl('avatar-menu-delete-btn');
             if (delBtn) { if (url) delBtn.classList.remove('hidden'); else delBtn.classList.add('hidden'); }
         }
+
+        // --- Avatar Edit Dropdown Menu ---
+        window.toggleAvatarMenu = (event) => {
+            event?.stopPropagation();
+            const menu = safeEl('avatar-menu');
+            if (!menu) return;
+            menu.classList.toggle('hidden');
+        };
+        window.closeAvatarMenu = () => {
+            const menu = safeEl('avatar-menu');
+            if (menu) menu.classList.add('hidden');
+        };
+        document.addEventListener('click', (e) => {
+            const menu = safeEl('avatar-menu');
+            const btn = safeEl('avatar-edit-btn');
+            if (!menu || menu.classList.contains('hidden')) return;
+            if (menu.contains(e.target) || btn?.contains(e.target)) return;
+            menu.classList.add('hidden');
+        });
+        window.avatarMenuChoosePhoto = () => {
+            window.closeAvatarMenu();
+            safeEl('profile-avatar-input')?.click();
+        };
+        window.avatarMenuTakePhoto = () => {
+            window.closeAvatarMenu();
+            safeEl('profile-avatar-camera-input')?.click();
+        };
+        window.avatarMenuDeletePhoto = () => {
+            window.closeAvatarMenu();
+            window.deleteProfileAvatar();
+        };
 
         window.deleteProfileAvatar = async () => {
             if (!currentUser) return;
