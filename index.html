@@ -1259,7 +1259,7 @@
         function subscribeTeamMembers() {
             if (!currentUser) return;
             if (teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
-            const membersRef = collection(db, TEAM_COLLECTION, currentUser.uid, "members");
+            const membersRef = collection(db, TEAM_COLLECTION, workspaceOwnerId || currentUser.uid, "members");
             teamUnsubscribe = onSnapshot(membersRef, (snapshot) => {
                 const members = snapshot.docs
                     .map(d => ({ id: d.id, ...d.data() }))
@@ -1453,16 +1453,22 @@
                     addedAt: Date.now(),
                     addedBy: 'invite_link'
                 });
+                // สำเร็จจริง ๆ เท่านั้นถึงจะเคลียร์ลิงก์เชิญและปิดหน้าต่าง
+                clearInviteParam();
+                hideJoinTeamModal();
                 showToast('เข้าร่วมทีมสำเร็จแล้ว!', 'success');
                 await resolveWorkspaceOwner();
+                subscribeTeamMembers();
                 subscribeToData(activeView === 'settings' ? 'dashboard' : activeView);
             } catch (e) {
                 console.error("Accept join team error:", e);
-                showToast('เข้าร่วมทีมไม่สำเร็จ: ' + e.message, 'error');
+                // ไม่เคลียร์ลิงก์เชิญ/ไม่ปิดหน้าต่าง เพื่อให้ผู้ใช้กดลองใหม่ได้ทันที
+                const isPermissionError = e?.code === 'permission-denied' || /permission/i.test(e?.message || '');
+                showToast(isPermissionError
+                    ? 'เข้าร่วมทีมไม่สำเร็จ: ไม่มีสิทธิ์เขียนข้อมูล (ตรวจสอบ Firestore Rules) กรุณาลองใหม่'
+                    : 'เข้าร่วมทีมไม่สำเร็จ: ' + e.message + ' กรุณาลองใหม่', 'error');
             } finally {
                 if (btn) btn.disabled = false;
-                clearInviteParam();
-                hideJoinTeamModal();
             }
         };
 
