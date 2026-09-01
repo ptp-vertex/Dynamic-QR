@@ -111,6 +111,29 @@
         </div>
     </div>
 
+    <!-- Avatar Crop Modal -->
+    <div id="avatar-crop-modal" class="hidden fixed inset-0 bg-dark/70 backdrop-blur-sm z-[85] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-6 max-w-sm w-full relative shadow-2xl transform scale-95 transition-transform duration-300" id="avatar-crop-modal-content">
+            <h2 class="text-center text-lg font-extrabold text-gray-900 mb-1">ครอปรูปโปรไฟล์</h2>
+            <p class="text-center text-xs text-gray-500 mb-5">ลากรูปเพื่อจัดตำแหน่ง และเลื่อนแถบด้านล่างเพื่อซูม</p>
+            <div class="relative w-64 h-64 mx-auto rounded-full overflow-hidden border-4 border-gray-100 shadow-inner bg-gray-100 cursor-move select-none" id="crop-canvas-wrap">
+                <canvas id="avatar-crop-canvas" width="300" height="300" class="w-full h-full"></canvas>
+            </div>
+            <div class="flex items-center gap-3 mt-5 px-2">
+                <i class="fa-solid fa-magnifying-glass-minus text-gray-400 text-sm"></i>
+                <input type="range" id="crop-zoom-range" min="100" max="300" value="100" class="flex-1 accent-primary">
+                <i class="fa-solid fa-magnifying-glass-plus text-gray-400 text-sm"></i>
+            </div>
+            <div class="flex gap-3 mt-6">
+                <button onclick="window.cancelAvatarCrop()" class="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition">ยกเลิก</button>
+                <button onclick="window.confirmAvatarCrop()" id="btn-confirm-crop" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-secondary transition disabled:opacity-50" >
+                    <i class="fa-solid fa-circle-notch fa-spin hidden" id="crop-confirm-spinner"></i>
+                    <span id="crop-confirm-text">ใช้รูปนี้</span>
+                </button>
+            </div>
+        </div>
+    </div>
+
     <!-- ================= PUBLIC LANDING PAGE ================= -->
     <div id="page-landing" class="hidden flex-1 flex flex-col bg-white w-full">
         <nav class="px-6 py-5 flex justify-between items-center max-w-7xl mx-auto w-full z-40 relative">
@@ -473,11 +496,14 @@
                                             <i class="fa-solid fa-camera text-xs" id="avatar-upload-icon"></i>
                                             <i class="fa-solid fa-circle-notch fa-spin text-xs hidden" id="avatar-upload-spinner"></i>
                                         </button>
-                                        <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" onchange="window.uploadProfileAvatar(event)">
+                                        <button type="button" onclick="window.deleteProfileAvatar()" id="avatar-delete-btn" class="hidden absolute -top-1 -right-1 w-6 h-6 bg-red-500 text-white rounded-full flex items-center justify-center border-2 border-white shadow hover:bg-red-600 transition">
+                                            <i class="fa-solid fa-trash text-[10px]"></i>
+                                        </button>
+                                        <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" onchange="window.openAvatarCrop(event)">
                                     </div>
                                     <div>
                                         <p class="font-bold text-gray-800 text-sm">รูปโปรไฟล์</p>
-                                        <p class="text-xs text-gray-500">คลิกไอคอนกล้องเพื่ออัปโหลดรูปใหม่ (ไม่เกิน 5MB)</p>
+                                        <p class="text-xs text-gray-500">คลิกไอคอนกล้องเพื่ออัปโหลดรูปใหม่ (ไม่เกิน 5MB) หรือกดถังขยะเพื่อลบรูป</p>
                                     </div>
                                 </div>
                                 <div>
@@ -525,30 +551,16 @@
                         <!-- Team Tab -->
                         <div id="scontent-team" class="scontent-panel hidden fade-in">
                             <h3 class="text-2xl font-extrabold text-gray-900 mb-8">จัดการทีม</h3>
-                            <p class="text-gray-500 mb-6">เชิญสมาชิกในทีมเพื่อช่วยจัดการ QR Code ใน Workspace นี้</p>
-                            <div class="flex gap-3 mb-3 max-w-md">
-                                <input type="email" id="team-invite-email" placeholder="ใส่อีเมลที่ต้องการเชิญ" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-primary outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.inviteTeamMember();}">
-                                <button id="btn-invite-team" onclick="window.inviteTeamMember()" class="bg-dark text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <i class="fa-solid fa-circle-notch fa-spin hidden" id="invite-spinner"></i>
-                                    <span id="invite-btn-text">เชิญ</span>
-                                </button>
-                            </div>
-                            <div class="flex gap-3 mb-2 max-w-md">
-                                <input type="tel" id="team-invite-phone" placeholder="หรือใส่เบอร์โทรที่ต้องการเชิญ" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-primary outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.inviteTeamMemberByPhone();}">
-                                <button id="btn-invite-team-phone" onclick="window.inviteTeamMemberByPhone()" class="bg-gray-700 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
-                                    <i class="fa-solid fa-circle-notch fa-spin hidden" id="invite-phone-spinner"></i>
-                                    <span id="invite-phone-btn-text">เชิญ</span>
-                                </button>
-                            </div>
-                            <p class="text-xs text-gray-400 mb-6">สมาชิกที่เพิ่มจะเห็น QR Code ทั้งหมดใน Workspace นี้ทันที</p>
-
                             <div class="max-w-md mb-8 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-3">
                                 <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary shrink-0"><i class="fa-solid fa-link"></i></div>
                                 <div class="flex-1 min-w-0">
                                     <p class="text-xs font-bold text-gray-700">ลิงก์เชิญเข้าร่วมทีม</p>
                                     <p class="text-[11px] text-gray-500">แชร์ลิงก์นี้ให้เพื่อน เมื่อเปิดขณะล็อกอินอยู่ ระบบจะถามเข้าร่วมทันที</p>
                                 </div>
-                                <button onclick="window.shareTeamInviteLink()" class="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition shrink-0"><i class="fa-solid fa-share-nodes mr-1"></i>แชร์ลิงก์</button>
+                                <div class="flex gap-2 shrink-0">
+                                    <button onclick="window.copyTeamInviteLink()" title="คัดลอกลิงก์" class="bg-white border border-gray-200 text-gray-700 w-9 h-9 rounded-lg text-xs font-bold hover:bg-gray-50 transition flex items-center justify-center"><i class="fa-regular fa-copy"></i></button>
+                                    <button onclick="window.shareTeamInviteLink()" class="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition"><i class="fa-solid fa-share-nodes mr-1"></i>แชร์ลิงก์</button>
+                                </div>
                             </div>
 
                             <div class="border border-gray-200 rounded-xl divide-y divide-gray-100">
@@ -563,7 +575,7 @@
                                 </div>
                                 <div id="team-members-list"></div>
                             </div>
-                            <p id="team-empty-hint" class="text-xs text-gray-400 mt-4 hidden">ยังไม่มีสมาชิกในทีม เพิ่มอีเมล เบอร์โทร หรือแชร์ลิงก์เชิญด้านบน</p>
+                            <p id="team-empty-hint" class="text-xs text-gray-400 mt-4 hidden">ยังไม่มีสมาชิกในทีม แชร์ลิงก์เชิญด้านบนเพื่อเพิ่มสมาชิก</p>
                         </div>
 
                         <!-- API Tab -->
@@ -1361,6 +1373,14 @@
             }
         };
 
+        window.copyTeamInviteLink = () => {
+            if (!currentUser) return;
+            const link = `${window.location.origin}${window.location.pathname}?invite=${currentUser.uid}`;
+            navigator.clipboard.writeText(link)
+                .then(() => showToast('คัดลอกลิงก์เชิญแล้ว', 'success'))
+                .catch(() => showToast('คัดลอกลิงก์ไม่สำเร็จ', 'error'));
+        };
+
         // --- Join Team via Invite Link ---
         function showJoinTeamModal() {
             const modal = safeEl('join-team-modal');
@@ -1443,12 +1463,64 @@
         function applyAvatarToUI(url) {
             [['profile-avatar-img', 'profile-avatar-icon'], ['header-avatar-img', 'header-avatar-icon']].forEach(([imgId, iconId]) => {
                 const img = safeEl(imgId), icon = safeEl(iconId);
-                if (img && url) { img.src = url; img.classList.remove('hidden'); }
-                if (icon && url) icon.classList.add('hidden');
+                if (url) {
+                    if (img) { img.src = url; img.classList.remove('hidden'); }
+                    if (icon) icon.classList.add('hidden');
+                } else {
+                    if (img) { img.src = ''; img.classList.add('hidden'); }
+                    if (icon) icon.classList.remove('hidden');
+                }
             });
+            const delBtn = safeEl('avatar-delete-btn');
+            if (delBtn) { if (url) delBtn.classList.remove('hidden'); else delBtn.classList.add('hidden'); }
         }
 
-        window.uploadProfileAvatar = async (event) => {
+        window.deleteProfileAvatar = async () => {
+            if (!currentUser) return;
+            if (!confirm('ต้องการลบรูปโปรไฟล์นี้หรือไม่?')) return;
+            try {
+                await setDoc(doc(db, "hovercode_users", currentUser.uid), { photoURL: '' }, { merge: true });
+                applyAvatarToUI('');
+                showToast('ลบรูปโปรไฟล์เรียบร้อยแล้ว', 'success');
+            } catch (e) {
+                console.error("Delete avatar error:", e);
+                showToast('ลบรูปไม่สำเร็จ: ' + e.message, 'error');
+            }
+        };
+
+        async function uploadAvatarBlob(blob) {
+            const timestamp = Math.round((new Date).getTime() / 1000);
+            const folderName = `profile_avatars/${currentUser.uid}`;
+            const signatureStr = `folder=${folderName}&timestamp=${timestamp}${_getCSec()}`;
+            const encoder = new TextEncoder();
+            const data = encoder.encode(signatureStr);
+            const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+            const hashArray = Array.from(new Uint8Array(hashBuffer));
+            const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+            const formData = new FormData();
+            formData.append('file', blob, 'avatar.png');
+            formData.append('api_key', CLOUDINARY_API_KEY);
+            formData.append('timestamp', timestamp);
+            formData.append('folder', folderName);
+            formData.append('signature', signature);
+
+            const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+            const result = await res.json();
+            if (!res.ok || !result.secure_url) throw new Error(result?.error?.message || 'อัปโหลดรูปล้มเหลว');
+
+            await setDoc(doc(db, "hovercode_users", currentUser.uid), { photoURL: result.secure_url }, { merge: true });
+            applyAvatarToUI(result.secure_url);
+            showToast('อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว', 'success');
+        }
+
+        // --- Avatar Crop (circular) ---
+        const CROP_CANVAS_SIZE = 300;
+        let cropImgObj = null;
+        let cropScale = 1, cropMinScale = 1, cropOffsetX = 0, cropOffsetY = 0;
+        let cropDragging = false, cropDragStart = { x: 0, y: 0 };
+
+        window.openAvatarCrop = (event) => {
             if (!currentUser) return;
             const file = event.target?.files?.[0];
             if (!file) return;
@@ -1464,42 +1536,142 @@
                 return;
             }
 
-            const icon = safeEl('avatar-upload-icon');
-            const spinner = safeEl('avatar-upload-spinner');
-            if (icon) icon.classList.add('hidden');
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                const img = new Image();
+                img.onload = () => {
+                    cropImgObj = img;
+                    cropScale = Math.max(CROP_CANVAS_SIZE / img.width, CROP_CANVAS_SIZE / img.height);
+                    cropMinScale = cropScale;
+                    cropOffsetX = 0; cropOffsetY = 0;
+                    const range = safeEl('crop-zoom-range');
+                    if (range) range.value = 100;
+                    drawCropCanvas();
+                    showAvatarCropModal();
+                };
+                img.onerror = () => showToast('ไม่สามารถโหลดรูปภาพนี้ได้', 'error');
+                img.src = e.target.result;
+            };
+            reader.readAsDataURL(file);
+            event.target.value = '';
+        };
+
+        function drawCropCanvas() {
+            const canvas = safeEl('avatar-crop-canvas');
+            if (!canvas || !cropImgObj) return;
+            const ctx = canvas.getContext('2d');
+            ctx.clearRect(0, 0, CROP_CANVAS_SIZE, CROP_CANVAS_SIZE);
+            const w = cropImgObj.width * cropScale;
+            const h = cropImgObj.height * cropScale;
+            const x = (CROP_CANVAS_SIZE - w) / 2 + cropOffsetX;
+            const y = (CROP_CANVAS_SIZE - h) / 2 + cropOffsetY;
+            ctx.drawImage(cropImgObj, x, y, w, h);
+        }
+
+        function clampCropOffset() {
+            if (!cropImgObj) return;
+            const w = cropImgObj.width * cropScale;
+            const h = cropImgObj.height * cropScale;
+            const maxX = Math.max(0, (w - CROP_CANVAS_SIZE) / 2);
+            const maxY = Math.max(0, (h - CROP_CANVAS_SIZE) / 2);
+            cropOffsetX = Math.min(maxX, Math.max(-maxX, cropOffsetX));
+            cropOffsetY = Math.min(maxY, Math.max(-maxY, cropOffsetY));
+        }
+
+        function showAvatarCropModal() {
+            const modal = safeEl('avatar-crop-modal');
+            const content = safeEl('avatar-crop-modal-content');
+            if (!modal || !content) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); }, 10);
+        }
+
+        window.cancelAvatarCrop = () => {
+            const modal = safeEl('avatar-crop-modal');
+            const content = safeEl('avatar-crop-modal-content');
+            if (!modal || !content) return;
+            modal.classList.add('opacity-0'); content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+            cropImgObj = null;
+        };
+
+        const cropZoomRangeEl = safeEl('crop-zoom-range');
+        if (cropZoomRangeEl) {
+            cropZoomRangeEl.addEventListener('input', (e) => {
+                if (!cropImgObj) return;
+                const pct = parseFloat(e.target.value) / 100;
+                cropScale = cropMinScale * pct;
+                clampCropOffset();
+                drawCropCanvas();
+            });
+        }
+
+        const cropWrapEl = safeEl('crop-canvas-wrap');
+        if (cropWrapEl) {
+            const startDrag = (clientX, clientY) => {
+                if (!cropImgObj) return;
+                cropDragging = true;
+                cropDragStart = { x: clientX - cropOffsetX, y: clientY - cropOffsetY };
+            };
+            const moveDrag = (clientX, clientY) => {
+                if (!cropDragging) return;
+                cropOffsetX = clientX - cropDragStart.x;
+                cropOffsetY = clientY - cropDragStart.y;
+                clampCropOffset();
+                drawCropCanvas();
+            };
+            const endDrag = () => { cropDragging = false; };
+
+            cropWrapEl.addEventListener('mousedown', (e) => startDrag(e.clientX, e.clientY));
+            window.addEventListener('mousemove', (e) => moveDrag(e.clientX, e.clientY));
+            window.addEventListener('mouseup', endDrag);
+            cropWrapEl.addEventListener('touchstart', (e) => { const t = e.touches[0]; startDrag(t.clientX, t.clientY); }, { passive: true });
+            cropWrapEl.addEventListener('touchmove', (e) => { const t = e.touches[0]; moveDrag(t.clientX, t.clientY); }, { passive: true });
+            cropWrapEl.addEventListener('touchend', endDrag);
+        }
+
+        window.confirmAvatarCrop = async () => {
+            if (!cropImgObj || !currentUser) return;
+            const btnText = safeEl('crop-confirm-text');
+            const spinner = safeEl('crop-confirm-spinner');
+            const confirmBtn = safeEl('btn-confirm-crop');
+            if (btnText) btnText.classList.add('hidden');
             if (spinner) spinner.classList.remove('hidden');
+            if (confirmBtn) confirmBtn.disabled = true;
 
             try {
-                const timestamp = Math.round((new Date).getTime() / 1000);
-                const folderName = `profile_avatars/${currentUser.uid}`;
-                const signatureStr = `folder=${folderName}&timestamp=${timestamp}${_getCSec()}`;
-                const encoder = new TextEncoder();
-                const data = encoder.encode(signatureStr);
-                const hashBuffer = await crypto.subtle.digest('SHA-1', data);
-                const hashArray = Array.from(new Uint8Array(hashBuffer));
-                const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+                const canvas = safeEl('avatar-crop-canvas');
+                const outSize = 400;
+                const outCanvas = document.createElement('canvas');
+                outCanvas.width = outSize; outCanvas.height = outSize;
+                const octx = outCanvas.getContext('2d');
+                octx.save();
+                octx.beginPath();
+                octx.arc(outSize / 2, outSize / 2, outSize / 2, 0, Math.PI * 2);
+                octx.closePath();
+                octx.clip();
+                octx.drawImage(canvas, 0, 0, outSize, outSize);
+                octx.restore();
 
-                const formData = new FormData();
-                formData.append('file', file);
-                formData.append('api_key', CLOUDINARY_API_KEY);
-                formData.append('timestamp', timestamp);
-                formData.append('folder', folderName);
-                formData.append('signature', signature);
+                const blob = await new Promise(resolve => outCanvas.toBlob(resolve, 'image/png', 0.92));
+                if (!blob) throw new Error('ไม่สามารถสร้างรูปได้');
 
-                const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
-                const result = await res.json();
-                if (!res.ok || !result.secure_url) throw new Error(result?.error?.message || 'อัปโหลดรูปล้มเหลว');
+                await uploadAvatarBlob(blob);
 
-                await setDoc(doc(db, "hovercode_users", currentUser.uid), { photoURL: result.secure_url }, { merge: true });
-                applyAvatarToUI(result.secure_url);
-                showToast('อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว', 'success');
+                const modal = safeEl('avatar-crop-modal');
+                const content = safeEl('avatar-crop-modal-content');
+                if (modal && content) {
+                    modal.classList.add('opacity-0'); content.classList.add('scale-95');
+                    setTimeout(() => modal.classList.add('hidden'), 300);
+                }
+                cropImgObj = null;
             } catch (e) {
-                console.error("Avatar upload error:", e);
+                console.error("Crop/upload error:", e);
                 showToast('อัปโหลดรูปไม่สำเร็จ: ' + e.message, 'error');
             } finally {
-                if (icon) icon.classList.remove('hidden');
+                if (btnText) btnText.classList.remove('hidden');
                 if (spinner) spinner.classList.add('hidden');
-                event.target.value = '';
+                if (confirmBtn) confirmBtn.disabled = false;
             }
         };
 
