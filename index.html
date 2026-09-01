@@ -93,6 +93,24 @@
         </div>
     </div>
 
+    <!-- Join Team Invite Modal -->
+    <div id="join-team-modal" class="hidden fixed inset-0 bg-dark/60 backdrop-blur-sm z-[85] flex items-center justify-center p-4 opacity-0 transition-opacity duration-300">
+        <div class="bg-white rounded-3xl p-8 max-w-sm w-full relative shadow-2xl transform scale-95 transition-transform duration-300 overflow-hidden" id="join-team-modal-content">
+            <div class="absolute top-0 left-0 w-full h-2 bg-gradient-to-r from-primary to-secondary"></div>
+            <div class="w-16 h-16 bg-gradient-to-br from-primary to-secondary text-white rounded-2xl flex items-center justify-center mx-auto mb-6 shadow-lg shadow-primary/30">
+                <i class="fa-solid fa-user-group text-3xl"></i>
+            </div>
+            <h2 class="text-center text-xl font-extrabold text-gray-900 mb-2">คำเชิญเข้าร่วมทีม</h2>
+            <p class="text-center text-sm text-gray-500 mb-8">
+                <span id="join-team-owner-name" class="font-bold text-gray-700">-</span> เชิญคุณเข้าร่วม Workspace นี้ เพื่อจัดการ QR Code ร่วมกัน ยืนยันหรือไม่?
+            </p>
+            <div class="flex gap-3">
+                <button onclick="window.declineJoinTeam()" class="flex-1 py-3 border-2 border-gray-200 rounded-xl font-bold text-gray-600 hover:bg-gray-50 transition">ปฏิเสธ</button>
+                <button onclick="window.acceptJoinTeam()" id="btn-accept-join-team" class="flex-1 py-3 bg-primary text-white rounded-xl font-bold hover:bg-secondary transition">เข้าร่วม</button>
+            </div>
+        </div>
+    </div>
+
     <!-- ================= PUBLIC LANDING PAGE ================= -->
     <div id="page-landing" class="hidden flex-1 flex flex-col bg-white w-full">
         <nav class="px-6 py-5 flex justify-between items-center max-w-7xl mx-auto w-full z-40 relative">
@@ -171,7 +189,10 @@
                     <!-- Advanced Profile Dropdown -->
                     <div class="relative h-full flex items-center">
                         <button id="profile-btn" class="flex items-center gap-2 p-1 rounded-full hover:bg-gray-100 transition focus:outline-none">
-                            <div class="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold shadow-sm"><i class="fa-regular fa-user"></i></div>
+                            <div id="header-avatar" class="w-9 h-9 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold shadow-sm overflow-hidden">
+                                <i class="fa-regular fa-user" id="header-avatar-icon"></i>
+                                <img id="header-avatar-img" src="" class="w-full h-full object-cover hidden" alt="รูปโปรไฟล์">
+                            </div>
                             <i class="fa-solid fa-chevron-down text-xs text-gray-400 mr-1"></i>
                         </button>
                         
@@ -439,6 +460,23 @@
                         <div id="scontent-profile" class="scontent-panel fade-in">
                             <h3 class="text-2xl font-extrabold text-gray-900 mb-8">ข้อมูลโปรไฟล์</h3>
                             <div class="space-y-5 max-w-md">
+                                <div class="flex items-center gap-5 mb-2">
+                                    <div class="relative shrink-0">
+                                        <div id="profile-avatar-wrap" class="w-20 h-20 rounded-full bg-slate-800 text-white flex items-center justify-center font-bold text-2xl overflow-hidden shadow-md">
+                                            <i class="fa-regular fa-user" id="profile-avatar-icon"></i>
+                                            <img id="profile-avatar-img" src="" class="w-full h-full object-cover hidden" alt="รูปโปรไฟล์">
+                                        </div>
+                                        <button type="button" onclick="safeEl('profile-avatar-input')?.click()" class="absolute -bottom-1 -right-1 w-8 h-8 bg-primary text-white rounded-full flex items-center justify-center border-2 border-white shadow hover:bg-secondary transition">
+                                            <i class="fa-solid fa-camera text-xs" id="avatar-upload-icon"></i>
+                                            <i class="fa-solid fa-circle-notch fa-spin text-xs hidden" id="avatar-upload-spinner"></i>
+                                        </button>
+                                        <input type="file" id="profile-avatar-input" accept="image/*" class="hidden" onchange="window.uploadProfileAvatar(event)">
+                                    </div>
+                                    <div>
+                                        <p class="font-bold text-gray-800 text-sm">รูปโปรไฟล์</p>
+                                        <p class="text-xs text-gray-500">คลิกไอคอนกล้องเพื่ออัปโหลดรูปใหม่ (ไม่เกิน 5MB)</p>
+                                    </div>
+                                </div>
                                 <div>
                                     <label class="block text-sm font-bold text-gray-700 mb-2">อีเมลบัญชี (ไม่สามารถเปลี่ยนได้)</label>
                                     <input type="email" id="set-profile-email" disabled class="w-full px-4 py-3 bg-gray-100 border border-gray-200 rounded-xl text-gray-500 cursor-not-allowed font-medium">
@@ -446,6 +484,10 @@
                                 <div>
                                     <label class="block text-sm font-bold text-gray-700 mb-2">ชื่อที่แสดง (Display Name)</label>
                                     <input type="text" id="set-profile-name" placeholder="ชื่อของคุณ" class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none font-medium">
+                                </div>
+                                <div>
+                                    <label class="block text-sm font-bold text-gray-700 mb-2">เบอร์โทรศัพท์</label>
+                                    <input type="tel" id="set-profile-phone" placeholder="เช่น 0812345678" class="w-full px-4 py-3 bg-white border border-gray-300 rounded-xl focus:ring-2 focus:ring-primary focus:border-primary outline-none font-medium">
                                 </div>
                                 <div class="pt-4">
                                     <button onclick="saveProfileSettings()" class="bg-primary text-white px-8 py-3 rounded-xl font-bold hover:bg-secondary hover:shadow-lg hover:shadow-primary/30 transition w-full md:w-auto">บันทึกข้อมูล</button>
@@ -481,10 +523,31 @@
                         <div id="scontent-team" class="scontent-panel hidden fade-in">
                             <h3 class="text-2xl font-extrabold text-gray-900 mb-8">จัดการทีม</h3>
                             <p class="text-gray-500 mb-6">เชิญสมาชิกในทีมเพื่อช่วยจัดการ QR Code ใน Workspace นี้</p>
-                            <div class="flex gap-3 mb-8 max-w-md">
-                                <input type="email" placeholder="ใส่อีเมลที่ต้องการเชิญ" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-primary outline-none">
-                                <button onclick="showToast('ส่งคำเชิญแล้ว (Demo)', 'success')" class="bg-dark text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition shrink-0">เชิญ</button>
+                            <div class="flex gap-3 mb-3 max-w-md">
+                                <input type="email" id="team-invite-email" placeholder="ใส่อีเมลที่ต้องการเชิญ" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-primary outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.inviteTeamMember();}">
+                                <button id="btn-invite-team" onclick="window.inviteTeamMember()" class="bg-dark text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fa-solid fa-circle-notch fa-spin hidden" id="invite-spinner"></i>
+                                    <span id="invite-btn-text">เชิญ</span>
+                                </button>
                             </div>
+                            <div class="flex gap-3 mb-2 max-w-md">
+                                <input type="tel" id="team-invite-phone" placeholder="หรือใส่เบอร์โทรที่ต้องการเชิญ" class="flex-1 px-4 py-2.5 border border-gray-300 rounded-xl focus:border-primary outline-none" onkeydown="if(event.key==='Enter'){event.preventDefault(); window.inviteTeamMemberByPhone();}">
+                                <button id="btn-invite-team-phone" onclick="window.inviteTeamMemberByPhone()" class="bg-gray-700 text-white px-6 py-2.5 rounded-xl font-bold hover:bg-gray-800 transition shrink-0 disabled:opacity-50 disabled:cursor-not-allowed">
+                                    <i class="fa-solid fa-circle-notch fa-spin hidden" id="invite-phone-spinner"></i>
+                                    <span id="invite-phone-btn-text">เชิญ</span>
+                                </button>
+                            </div>
+                            <p class="text-xs text-gray-400 mb-6">สมาชิกที่เพิ่มจะเห็น QR Code ทั้งหมดใน Workspace นี้ทันที</p>
+
+                            <div class="max-w-md mb-8 p-4 bg-indigo-50 border border-indigo-100 rounded-xl flex items-center gap-3">
+                                <div class="w-10 h-10 bg-white rounded-full flex items-center justify-center text-primary shrink-0"><i class="fa-solid fa-link"></i></div>
+                                <div class="flex-1 min-w-0">
+                                    <p class="text-xs font-bold text-gray-700">ลิงก์เชิญเข้าร่วมทีม</p>
+                                    <p class="text-[11px] text-gray-500">แชร์ลิงก์นี้ให้เพื่อน เมื่อเปิดขณะล็อกอินอยู่ ระบบจะถามเข้าร่วมทันที</p>
+                                </div>
+                                <button onclick="window.shareTeamInviteLink()" class="bg-white border border-gray-200 text-gray-700 px-4 py-2 rounded-lg text-xs font-bold hover:bg-gray-50 transition shrink-0"><i class="fa-solid fa-share-nodes mr-1"></i>แชร์ลิงก์</button>
+                            </div>
+
                             <div class="border border-gray-200 rounded-xl divide-y divide-gray-100">
                                 <div class="flex justify-between items-center p-4">
                                     <div class="flex items-center gap-3">
@@ -495,7 +558,9 @@
                                     </div>
                                     <span class="text-xs font-bold text-gray-500">เจ้าของ</span>
                                 </div>
+                                <div id="team-members-list"></div>
                             </div>
+                            <p id="team-empty-hint" class="text-xs text-gray-400 mt-4 hidden">ยังไม่มีสมาชิกในทีม เพิ่มอีเมล เบอร์โทร หรือแชร์ลิงก์เชิญด้านบน</p>
                         </div>
 
                         <!-- API Tab -->
@@ -811,6 +876,7 @@
         const COLLECTION_NAME = "hovercode_assets"; 
         
         let currentUser = null;
+        let pendingInviteOwnerId = new URLSearchParams(window.location.search).get('invite') || null;
         let isAdmin = false;
         let allItems = [];
         let currentApiKey = null;
@@ -830,6 +896,8 @@
         let itemsUnsubscribe = null;
         let scanDetailsUnsubscribe = null;
         let systemUnsubscribe = null;
+        let teamUnsubscribe = null;
+        const TEAM_COLLECTION = "hovercode_teams";
 
         let quickType = 'url';
         let quickColor = '#0f172a'; 
@@ -1021,6 +1089,8 @@
                                 currentApiKey = generateApiKey();
                                 await setDoc(userDocRef, { apiKey: currentApiKey }, { merge: true });
                             }
+                            if (userDoc.data().photoURL) applyAvatarToUI(userDoc.data().photoURL);
+                            if (safeEl('set-profile-phone')) safeEl('set-profile-phone').value = userDoc.data().phone || '';
                         } else {
                             currentApiKey = generateApiKey();
                             await setDoc(userDocRef, { email: user.email, displayName: displayName, createdAt: Date.now(), apiKey: currentApiKey, redirectBaseUrl: `${window.location.origin}${window.location.pathname}` });
@@ -1049,10 +1119,13 @@
                     safeEl('page-app')?.classList.remove('hidden');
                     toggleLoginModal(false);
                     navTo('dashboard'); 
+                    subscribeTeamMembers();
+                    checkPendingTeamInvite();
                 } else {
                     safeEl('page-landing')?.classList.remove('hidden');
                     safeEl('page-app')?.classList.add('hidden');
                     if(itemsUnsubscribe) { itemsUnsubscribe(); itemsUnsubscribe = null; }
+                    if(teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
                 }
             });
         }
@@ -1123,6 +1196,303 @@
             safeEl(`scontent-${tab}`)?.classList.remove('hidden');
         };
 
+        // --- Team Management ---
+        function renderTeamMembers(members) {
+            const list = safeEl('team-members-list');
+            const emptyHint = safeEl('team-empty-hint');
+            if (!list) return;
+            if (!members.length) {
+                list.innerHTML = '';
+                if (emptyHint) emptyHint.classList.remove('hidden');
+                return;
+            }
+            if (emptyHint) emptyHint.classList.add('hidden');
+            list.innerHTML = members.map(m => `
+                <div class="flex justify-between items-center p-4">
+                    <div class="flex items-center gap-3 min-w-0">
+                        <div class="w-10 h-10 bg-gray-100 text-gray-500 rounded-full flex items-center justify-center font-bold shrink-0"><i class="fa-regular fa-user"></i></div>
+                        <div class="min-w-0">
+                            <p class="font-bold text-gray-800 text-sm truncate">${m.email || m.phone || '-'}</p>
+                            <p class="text-[11px] text-gray-400">${m.email && m.phone ? m.phone + ' &middot; ' : ''}เพิ่มเมื่อ ${new Date(m.addedAt).toLocaleDateString('th-TH')}</p>
+                        </div>
+                    </div>
+                    <div class="flex items-center gap-3 shrink-0">
+                        <span class="text-xs font-bold text-gray-500">สมาชิก</span>
+                        <button onclick="window.removeTeamMember('${m.id}')" class="text-red-500 hover:bg-red-50 w-8 h-8 rounded-lg transition" title="นำออกจากทีม"><i class="fa-solid fa-trash-can"></i></button>
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        function subscribeTeamMembers() {
+            if (!currentUser) return;
+            if (teamUnsubscribe) { teamUnsubscribe(); teamUnsubscribe = null; }
+            const membersRef = collection(db, TEAM_COLLECTION, currentUser.uid, "members");
+            teamUnsubscribe = onSnapshot(membersRef, (snapshot) => {
+                const members = snapshot.docs
+                    .map(d => ({ id: d.id, ...d.data() }))
+                    .sort((a, b) => (a.addedAt || 0) - (b.addedAt || 0));
+                renderTeamMembers(members);
+            }, (err) => {
+                console.error("Team subscribe error:", err);
+            });
+        }
+
+        window.inviteTeamMember = async () => {
+            if (!currentUser) return;
+            const input = safeEl('team-invite-email');
+            const email = (input?.value || '').trim().toLowerCase();
+
+            if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) {
+                return showToast('กรุณากรอกอีเมลให้ถูกต้อง', 'error');
+            }
+            if (email === currentUser.email.toLowerCase()) {
+                return showToast('คุณคือเจ้าของทีมอยู่แล้ว', 'error');
+            }
+
+            const btn = safeEl('btn-invite-team');
+            const spinner = safeEl('invite-spinner');
+            const btnText = safeEl('invite-btn-text');
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.classList.add('hidden');
+
+            try {
+                const membersRef = collection(db, TEAM_COLLECTION, currentUser.uid, "members");
+                const dupCheck = await getDocs(query(membersRef, where("email", "==", email)));
+                if (!dupCheck.empty) {
+                    showToast('อีเมลนี้อยู่ในทีมแล้ว', 'error');
+                } else {
+                    await addDoc(membersRef, {
+                        email: email,
+                        role: 'member',
+                        addedAt: Date.now(),
+                        addedBy: currentUser.email
+                    });
+                    if (input) input.value = '';
+                    showToast(`เพิ่ม ${email} เข้าทีมแล้ว`, 'success');
+                }
+            } catch (e) {
+                console.error("Invite team member error:", e);
+                showToast('เพิ่มสมาชิกไม่สำเร็จ: ' + e.message, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+                if (btnText) btnText.classList.remove('hidden');
+            }
+        };
+
+        window.removeTeamMember = async (memberId) => {
+            if (!currentUser) return;
+            if (!confirm('นำสมาชิกคนนี้ออกจากทีม?')) return;
+            try {
+                await deleteDoc(doc(db, TEAM_COLLECTION, currentUser.uid, "members", memberId));
+                showToast('นำสมาชิกออกจากทีมแล้ว', 'success');
+            } catch (e) {
+                console.error("Remove team member error:", e);
+                showToast('นำสมาชิกออกไม่สำเร็จ: ' + e.message, 'error');
+            }
+        };
+
+        window.inviteTeamMemberByPhone = async () => {
+            if (!currentUser) return;
+            const input = safeEl('team-invite-phone');
+            const phone = (input?.value || '').trim().replace(/[\s-]/g, '');
+
+            if (!/^0[0-9]{8,9}$/.test(phone) && !/^\+[0-9]{8,15}$/.test(phone)) {
+                return showToast('กรุณากรอกเบอร์โทรให้ถูกต้อง', 'error');
+            }
+
+            const btn = safeEl('btn-invite-team-phone');
+            const spinner = safeEl('invite-phone-spinner');
+            const btnText = safeEl('invite-phone-btn-text');
+            if (btn) btn.disabled = true;
+            if (spinner) spinner.classList.remove('hidden');
+            if (btnText) btnText.classList.add('hidden');
+
+            try {
+                const membersRef = collection(db, TEAM_COLLECTION, currentUser.uid, "members");
+                const dupCheck = await getDocs(query(membersRef, where("phone", "==", phone)));
+                if (!dupCheck.empty) {
+                    showToast('เบอร์นี้อยู่ในทีมแล้ว', 'error');
+                } else {
+                    await addDoc(membersRef, {
+                        phone: phone,
+                        email: null,
+                        role: 'member',
+                        addedAt: Date.now(),
+                        addedBy: currentUser.email
+                    });
+                    if (input) input.value = '';
+                    showToast(`เพิ่มเบอร์ ${phone} เข้าทีมแล้ว`, 'success');
+                }
+            } catch (e) {
+                console.error("Invite team member by phone error:", e);
+                showToast('เพิ่มสมาชิกไม่สำเร็จ: ' + e.message, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+                if (spinner) spinner.classList.add('hidden');
+                if (btnText) btnText.classList.remove('hidden');
+            }
+        };
+
+        window.shareTeamInviteLink = async () => {
+            if (!currentUser) return;
+            const link = `${window.location.origin}${window.location.pathname}?invite=${currentUser.uid}`;
+            if (navigator.share) {
+                try {
+                    await navigator.share({ title: 'เชิญเข้าร่วมทีม NodexQR', text: 'มาร่วมจัดการ QR Code ในทีมของฉันบน NodexQR', url: link });
+                } catch (e) { /* ผู้ใช้ยกเลิกการแชร์ */ }
+            } else {
+                try {
+                    await navigator.clipboard.writeText(link);
+                    showToast('คัดลอกลิงก์เชิญแล้ว', 'success');
+                } catch (e) {
+                    showToast('คัดลอกลิงก์ไม่สำเร็จ', 'error');
+                }
+            }
+        };
+
+        // --- Join Team via Invite Link ---
+        function showJoinTeamModal() {
+            const modal = safeEl('join-team-modal');
+            const content = safeEl('join-team-modal-content');
+            if (!modal || !content) return;
+            modal.classList.remove('hidden');
+            setTimeout(() => { modal.classList.remove('opacity-0'); content.classList.remove('scale-95'); }, 10);
+        }
+
+        function hideJoinTeamModal() {
+            const modal = safeEl('join-team-modal');
+            const content = safeEl('join-team-modal-content');
+            if (!modal || !content) return;
+            modal.classList.add('opacity-0'); content.classList.add('scale-95');
+            setTimeout(() => modal.classList.add('hidden'), 300);
+        }
+
+        function clearInviteParam() {
+            pendingInviteOwnerId = null;
+            const url = new URL(window.location.href);
+            url.searchParams.delete('invite');
+            window.history.replaceState({}, document.title, url.pathname + (url.search || '') + url.hash);
+        }
+
+        async function checkPendingTeamInvite() {
+            if (!pendingInviteOwnerId || !currentUser) return;
+            if (pendingInviteOwnerId === currentUser.uid) { clearInviteParam(); return; }
+            try {
+                const ownerDoc = await getDoc(doc(db, "hovercode_users", pendingInviteOwnerId));
+                if (!ownerDoc.exists()) { clearInviteParam(); return; }
+                const ownerData = ownerDoc.data();
+
+                // ถ้าเป็นสมาชิกอยู่แล้ว ไม่ต้องถามซ้ำ
+                const membersRef = collection(db, TEAM_COLLECTION, pendingInviteOwnerId, "members");
+                const existing = await getDocs(query(membersRef, where("email", "==", currentUser.email.toLowerCase())));
+                if (!existing.empty) { clearInviteParam(); return; }
+
+                if (safeEl('join-team-owner-name')) safeEl('join-team-owner-name').innerText = ownerData.displayName || ownerData.email || 'เจ้าของทีม';
+                showJoinTeamModal();
+            } catch (e) {
+                console.error("Check pending invite error:", e);
+                clearInviteParam();
+            }
+        }
+
+        window.acceptJoinTeam = async () => {
+            if (!pendingInviteOwnerId || !currentUser) return hideJoinTeamModal();
+            const ownerId = pendingInviteOwnerId;
+            const btn = safeEl('btn-accept-join-team');
+            if (btn) btn.disabled = true;
+            try {
+                const membersRef = collection(db, TEAM_COLLECTION, ownerId, "members");
+                await addDoc(membersRef, {
+                    email: currentUser.email.toLowerCase(),
+                    uid: currentUser.uid,
+                    phone: null,
+                    role: 'member',
+                    addedAt: Date.now(),
+                    addedBy: 'invite_link'
+                });
+                showToast('เข้าร่วมทีมสำเร็จแล้ว!', 'success');
+            } catch (e) {
+                console.error("Accept join team error:", e);
+                showToast('เข้าร่วมทีมไม่สำเร็จ: ' + e.message, 'error');
+            } finally {
+                if (btn) btn.disabled = false;
+                clearInviteParam();
+                hideJoinTeamModal();
+            }
+        };
+
+        window.declineJoinTeam = () => {
+            clearInviteParam();
+            hideJoinTeamModal();
+        };
+
+        // --- Profile Avatar Upload (Cloudinary) ---
+        function applyAvatarToUI(url) {
+            [['profile-avatar-img', 'profile-avatar-icon'], ['header-avatar-img', 'header-avatar-icon']].forEach(([imgId, iconId]) => {
+                const img = safeEl(imgId), icon = safeEl(iconId);
+                if (img && url) { img.src = url; img.classList.remove('hidden'); }
+                if (icon && url) icon.classList.add('hidden');
+            });
+        }
+
+        window.uploadProfileAvatar = async (event) => {
+            if (!currentUser) return;
+            const file = event.target?.files?.[0];
+            if (!file) return;
+
+            if (!file.type.startsWith('image/')) {
+                showToast('กรุณาเลือกไฟล์รูปภาพเท่านั้น', 'error');
+                event.target.value = '';
+                return;
+            }
+            if (file.size > 5 * 1024 * 1024) {
+                showToast('ไฟล์รูปต้องมีขนาดไม่เกิน 5MB', 'error');
+                event.target.value = '';
+                return;
+            }
+
+            const icon = safeEl('avatar-upload-icon');
+            const spinner = safeEl('avatar-upload-spinner');
+            if (icon) icon.classList.add('hidden');
+            if (spinner) spinner.classList.remove('hidden');
+
+            try {
+                const timestamp = Math.round((new Date).getTime() / 1000);
+                const folderName = `profile_avatars/${currentUser.uid}`;
+                const signatureStr = `folder=${folderName}&timestamp=${timestamp}${_getCSec()}`;
+                const encoder = new TextEncoder();
+                const data = encoder.encode(signatureStr);
+                const hashBuffer = await crypto.subtle.digest('SHA-1', data);
+                const hashArray = Array.from(new Uint8Array(hashBuffer));
+                const signature = hashArray.map(b => b.toString(16).padStart(2, '0')).join('');
+
+                const formData = new FormData();
+                formData.append('file', file);
+                formData.append('api_key', CLOUDINARY_API_KEY);
+                formData.append('timestamp', timestamp);
+                formData.append('folder', folderName);
+                formData.append('signature', signature);
+
+                const res = await fetch(`https://api.cloudinary.com/v1_1/${CLOUDINARY_CLOUD_NAME}/image/upload`, { method: 'POST', body: formData });
+                const result = await res.json();
+                if (!res.ok || !result.secure_url) throw new Error(result?.error?.message || 'อัปโหลดรูปล้มเหลว');
+
+                await setDoc(doc(db, "hovercode_users", currentUser.uid), { photoURL: result.secure_url }, { merge: true });
+                applyAvatarToUI(result.secure_url);
+                showToast('อัปเดตรูปโปรไฟล์เรียบร้อยแล้ว', 'success');
+            } catch (e) {
+                console.error("Avatar upload error:", e);
+                showToast('อัปโหลดรูปไม่สำเร็จ: ' + e.message, 'error');
+            } finally {
+                if (icon) icon.classList.remove('hidden');
+                if (spinner) spinner.classList.add('hidden');
+                event.target.value = '';
+            }
+        };
+
         // Profile Dropdown Toggle Logic
         const profileBtn = safeEl('profile-btn');
         const profileDropdown = safeEl('profile-dropdown');
@@ -1183,10 +1553,14 @@
         window.saveProfileSettings = async () => {
             if(!currentUser) return;
             const newName = safeEl('set-profile-name')?.value.trim();
+            const newPhone = safeEl('set-profile-phone')?.value.trim() || '';
             if(!newName) return showToast("กรุณาใส่ชื่อที่แสดง", "error");
+            if (newPhone && !/^0[0-9]{8,9}$/.test(newPhone.replace(/[\s-]/g, '')) && !/^\+[0-9]{8,15}$/.test(newPhone.replace(/[\s-]/g, ''))) {
+                return showToast("รูปแบบเบอร์โทรไม่ถูกต้อง", "error");
+            }
             
             try {
-                await setDoc(doc(db, "hovercode_users", currentUser.uid), { displayName: newName }, { merge: true });
+                await setDoc(doc(db, "hovercode_users", currentUser.uid), { displayName: newName, phone: newPhone }, { merge: true });
                 if(safeEl('user-email-text')) safeEl('user-email-text').innerText = newName;
                 if(safeEl('team-owner-email')) safeEl('team-owner-email').innerText = `${newName} (คุณ)`;
                 showToast("อัปเดตโปรไฟล์เรียบร้อยแล้ว");
